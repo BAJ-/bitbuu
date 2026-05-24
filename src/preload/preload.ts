@@ -1,8 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-const api = {
+const api = Object.freeze({
   ping: (): Promise<'pong'> => ipcRenderer.invoke('ping'),
-} as const;
+} as const);
 
 export type BitbuuApi = typeof api;
 

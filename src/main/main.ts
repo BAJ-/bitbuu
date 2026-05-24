@@ -3,16 +3,22 @@ import * as path from 'node:path';
 
 const DEV_URL = process.env.VITE_DEV_SERVER_URL;
 
-function isAllowedNavigation(target: string): boolean {
-  if (DEV_URL && target.startsWith(DEV_URL)) return true;
-  if (target.startsWith('file://')) return true;
-  return false;
+function isAllowedNavigation(currentUrl: string, target: string): boolean {
+  let current: URL;
+  let next: URL;
+  try {
+    current = new URL(currentUrl);
+    next = new URL(target);
+  } catch {
+    return false;
+  }
+  return current.origin === next.origin && current.pathname === next.pathname;
 }
 
 app.on('web-contents-created', (_event, contents) => {
   contents.setWindowOpenHandler(() => ({ action: 'deny' }));
   contents.on('will-navigate', (event, target) => {
-    if (!isAllowedNavigation(target)) event.preventDefault();
+    if (!isAllowedNavigation(contents.getURL(), target)) event.preventDefault();
   });
 });
 
