@@ -21,7 +21,7 @@ function draw(): void {
   ctx.font = '16px system-ui, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('bitbuu — step 1 scaffold', w / 2, h / 2);
+  ctx.fillText('bitbuu', w / 2, h / 2);
 }
 
 window.addEventListener('resize', draw);

@@ -9,9 +9,10 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 function run(cmd, args) {
   return new Promise((resolve, reject) => {
     const p = spawn(cmd, args, { cwd: root, stdio: 'inherit' });
-    p.on('exit', (code) => {
+    p.on('error', reject);
+    p.on('exit', (code, signal) => {
       if (code === 0) resolve();
-      else reject(new Error(`${cmd} ${args.join(' ')} exited with ${code}`));
+      else reject(new Error(`${cmd} ${args.join(' ')} exited with ${signal ?? code}`));
     });
   });
 }
@@ -31,7 +32,14 @@ const electron = spawn(electronPath, ['.'], {
   env: { ...process.env, VITE_DEV_SERVER_URL: url },
 });
 
-electron.on('exit', async () => {
+electron.on('error', async (err) => {
+  console.error(err);
   await server.close();
-  process.exit(0);
+  process.exit(1);
+});
+
+electron.on('exit', async (code, signal) => {
+  await server.close();
+  if (signal) process.kill(process.pid, signal);
+  else process.exit(code ?? 0);
 });

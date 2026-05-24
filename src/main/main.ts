@@ -13,6 +13,7 @@ async function createWindow(): Promise<void> {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      webSecurity: true,
     },
   });
 
@@ -31,9 +32,17 @@ async function createWindow(): Promise<void> {
 }
 
 app.whenReady().then(() => {
-  void createWindow();
+  createWindow().catch((err) => {
+    console.error(err);
+    app.exit(1);
+  });
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) void createWindow();
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow().catch((err) => {
+        console.error(err);
+        app.exit(1);
+      });
+    }
   });
 });
 
