@@ -1,7 +1,22 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import * as path from 'node:path';
 
 const DEV_URL = process.env.VITE_DEV_SERVER_URL;
+
+function isAllowedNavigation(target: string): boolean {
+  if (DEV_URL && target.startsWith(DEV_URL)) return true;
+  if (target.startsWith('file://')) return true;
+  return false;
+}
+
+app.on('web-contents-created', (_event, contents) => {
+  contents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  contents.on('will-navigate', (event, target) => {
+    if (!isAllowedNavigation(target)) event.preventDefault();
+  });
+});
+
+ipcMain.handle('ping', () => 'pong' as const);
 
 async function createWindow(): Promise<void> {
   const win = new BrowserWindow({
@@ -15,12 +30,6 @@ async function createWindow(): Promise<void> {
       sandbox: true,
       webSecurity: true,
     },
-  });
-
-  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  win.webContents.on('will-navigate', (event, target) => {
-    const allowed = DEV_URL ?? 'file://';
-    if (!target.startsWith(allowed)) event.preventDefault();
   });
 
   if (DEV_URL) {
