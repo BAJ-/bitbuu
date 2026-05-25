@@ -85,6 +85,7 @@ canvas.addEventListener('click', (e) => {
 
 canvas.addEventListener('contextmenu', (e) => {
   e.preventDefault();
+  if (e.button !== 2) return;
   if (!(canvas instanceof HTMLCanvasElement)) return;
   const rect = canvas.getBoundingClientRect();
   const px = e.clientX - rect.left;
