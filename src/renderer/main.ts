@@ -1,5 +1,5 @@
 import { createModel, setVoxel } from '../core/model';
-import { render, type Camera } from '../core/render';
+import { render, type Camera, type Yaw } from '../core/render';
 
 const canvas = document.getElementById('stage');
 if (!(canvas instanceof HTMLCanvasElement)) {
@@ -24,6 +24,7 @@ const ZOOM_MIN = 4;
 const ZOOM_MAX = 96;
 const ZOOM_STEP = 1.15;
 let zoom = 48;
+let yaw: Yaw = 0;
 
 function draw(): void {
   if (!(canvas instanceof HTMLCanvasElement) || !ctx) return;
@@ -43,7 +44,7 @@ function draw(): void {
   // term is 0 and the second simplifies to 0, so the voxel's centre lands at
   // (panX, panY). Math...
   const camera: Camera = {
-    yaw: 0,
+    yaw,
     zoom,
     panX: w / 2,
     panY: h / 2,
@@ -63,6 +64,17 @@ canvas.addEventListener(
   },
   { passive: false },
 );
+
+window.addEventListener('keydown', (e) => {
+  if (e.repeat) return;
+  if (e.key === 'q' || e.key === 'Q') {
+    yaw = ((yaw + 3) % 4) as Yaw;
+    draw();
+  } else if (e.key === 'e' || e.key === 'E') {
+    yaw = ((yaw + 1) % 4) as Yaw;
+    draw();
+  }
+});
 
 window.addEventListener('resize', draw);
 draw();

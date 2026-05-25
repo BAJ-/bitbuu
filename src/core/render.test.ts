@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createModel, setVoxel } from './model';
-import { render, type Camera } from './render';
+import { render, type Camera, type Yaw } from './render';
 
 interface Fill {
   style: string;
@@ -92,5 +92,22 @@ describe('render', () => {
     // front voxel, identifiable by colour shade prefixes — both use distinct
     // palette slots so styles cluster by source.
     expect(fills).toHaveLength(6);
+  });
+
+  it('produces the same number of face fills under all four yaws', () => {
+    // Rotation around +z is a symmetry of the visible-face count: every yaw
+    // should draw exactly the same surface area, just in different positions.
+    const m = createModel(3, 4, 2);
+    setVoxel(m, 0, 0, 0, 1);
+    setVoxel(m, 1, 0, 0, 1);
+    setVoxel(m, 1, 1, 0, 1);
+    setVoxel(m, 2, 2, 1, 1);
+    setVoxel(m, 0, 3, 0, 1);
+    const counts = ([0, 1, 2, 3] as const).map((yaw: Yaw) => {
+      const { ctx, fills } = mockCtx();
+      render(m, { yaw, zoom: 10, panX: 0, panY: 0 }, ctx);
+      return fills.length;
+    });
+    expect(new Set(counts).size).toBe(1);
   });
 });
