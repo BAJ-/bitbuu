@@ -21,7 +21,7 @@ const picker = createPicker();
 
 const paletteEl = document.getElementById('palette');
 if (!(paletteEl instanceof HTMLElement)) {
-  throw new Error('#palette missing');
+  throw new Error('div#palette missing');
 }
 const swatches: HTMLButtonElement[] = [];
 for (let slot = 1; slot <= 16; slot++) {
