@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createModel, setVoxel } from './model';
-import { render, type Camera, type Yaw } from './render';
+import { forEachVisibleFace, render, type Camera, type Yaw } from './render';
 
 interface Fill {
   style: string;
@@ -57,9 +57,7 @@ describe('render', () => {
   });
 
   it('culls every face on a fully buried voxel', () => {
-    // 3x3x3 solid block: 27 voxels, but only the outer-positive slabs are visible:
-    // 9 top + 9 right (+x) + 9 left (+y) = 27 face fills. The center voxel
-    // (1,1,1) has all six neighbours and must contribute zero.
+    // Three visible sides (top, +x, +y) of 9 faces each = 27.
     const m = createModel(3, 3, 3);
     for (let z = 0; z < 3; z++)
       for (let y = 0; y < 3; y++) for (let x = 0; x < 3; x++) setVoxel(m, x, y, z, 1);
@@ -79,19 +77,16 @@ describe('render', () => {
     expect(fills).toHaveLength(5);
   });
 
-  it('iterates back-to-front so closer voxels paint over further ones', () => {
-    // Two voxels at (0,0,0) and (1,1,1). With camera at (+,+,+) the second is
-    // strictly in front. In lex x→y→z order it is visited second, so its fills
-    // appear later in the fill list.
+  it('iterates back-to-front so closer voxels are visited last', () => {
+    // Camera at (+,+,+): voxel at (1,1,1) is strictly in front of (0,0,0).
     const m = createModel(2, 2, 2);
     setVoxel(m, 0, 0, 0, 1);
     setVoxel(m, 1, 1, 1, 2);
-    const { ctx, fills } = mockCtx();
-    render(m, camera, ctx);
-    // Six fills total (three per isolated voxel). The last three came from the
-    // front voxel, identifiable by colour shade prefixes — both use distinct
-    // palette slots so styles cluster by source.
-    expect(fills).toHaveLength(6);
+    const order: number[] = [];
+    forEachVisibleFace(m, camera, (f) => {
+      order.push(f.v);
+    });
+    expect(order).toEqual([1, 1, 1, 2, 2, 2]);
   });
 
   it('produces the same number of face fills under all four yaws', () => {

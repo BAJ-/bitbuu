@@ -30,16 +30,12 @@ let zoom = 48;
 let yaw: Yaw = 0;
 
 function cameraFor(w: number, h: number): Camera {
-  // Centre on the placed voxel: a voxel at (a,b,c) projects to
-  // ((a-b)*zoom + panX, (a+b)*zoom/2 - c*zoom + panY). With a=b=c the first
-  // term is 0 and the second simplifies to 0, so the voxel's centre lands at
-  // (panX, panY) at every yaw.
   return { yaw, zoom, panX: w / 2, panY: h / 2 };
 }
 
 function draw(): void {
   if (!(canvas instanceof HTMLCanvasElement) || !ctx) return;
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const dpr = currentDpr();
   const w = canvas.clientWidth;
   const h = canvas.clientHeight;
   if (canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)) {
@@ -50,6 +46,10 @@ function draw(): void {
   ctx.fillStyle = '#1e1e1e';
   ctx.fillRect(0, 0, w, h);
   render(model, cameraFor(w, h), ctx);
+}
+
+function currentDpr(): number {
+  return Math.min(window.devicePixelRatio || 1, 2);
 }
 
 canvas.addEventListener(
@@ -72,7 +72,7 @@ canvas.addEventListener('click', (e) => {
   const py = e.clientY - rect.top;
   const w = canvas.clientWidth;
   const h = canvas.clientHeight;
-  const hit = picker.pick(model, cameraFor(w, h), w, h, px, py);
+  const hit = picker.pick(model, cameraFor(w, h), w, h, px, py, currentDpr());
   if (!hit) return;
   const nx = hit.x + hit.nx;
   const ny = hit.y + hit.ny;

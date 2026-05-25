@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createModel } from './model';
-import { decodeFaceId, encodeFaceId, faceIdFor } from './picking';
+import { decodeFaceId, encodeFaceId, faceIdFor, MAX_PICKABLE_VOXELS } from './picking';
 import { FACE_LEFT, FACE_RIGHT, FACE_TOP, faceNormal, type FaceKind } from './render';
 
 describe('encodeFaceId / decodeFaceId', () => {
@@ -42,6 +42,11 @@ describe('encodeFaceId / decodeFaceId', () => {
     const m = createModel(2, 2, 2);
     // Maximum valid id for a 2x2x2 model: 8 voxels * 3 faces = 24.
     expect(decodeFaceId(m, 100)).toBeNull();
+  });
+
+  it('exposes a voxel capacity that matches the 24-bit RGB encoding', () => {
+    expect(MAX_PICKABLE_VOXELS).toBe(Math.floor(0xffffff / 3));
+    expect(encodeFaceId(MAX_PICKABLE_VOXELS * 3)).toMatch(/^rgb\(\d+,\d+,\d+\)$/);
   });
 });
 

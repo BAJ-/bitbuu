@@ -2,7 +2,7 @@ import type { Model } from './model';
 import { drawFacePath, faceNormal, forEachVisibleFace, type Camera, type FaceKind } from './render';
 
 export interface PickedFace {
-  // Voxel the face belongs to.
+  // Voxel the face of the cube belongs to.
   x: number;
   y: number;
   z: number;
@@ -13,10 +13,10 @@ export interface PickedFace {
   nz: number;
 }
 
-// Pack a face id (>= 1; 0 is reserved for background) into RGB bytes.
-// Twenty-four bits comfortably hold (sx*sy*sz)*3 face ids for any practical
-// model (e.g. 1024^3 voxels * 3 faces = ~3.2e9, just over 2^31 — well above
-// expected scale of a pixel-art editor).
+// 24-bit RGB caps the face id at 0xFFFFFF
+export const MAX_PICKABLE_FACES = 0xffffff;
+export const MAX_PICKABLE_VOXELS = Math.floor(MAX_PICKABLE_FACES / 3);
+
 export function encodeFaceId(id: number): string {
   if (!Number.isInteger(id) || id <= 0 || id > 0xffffff) {
     throw new RangeError(`face id out of range: ${id}`);
@@ -55,6 +55,7 @@ export interface Picker {
     cssH: number,
     px: number,
     py: number,
+    dpr: number,
   ): PickedFace | null;
 }
 
@@ -64,15 +65,23 @@ export function createPicker(): Picker {
   if (!bctx) throw new Error('2d context unavailable for picker');
 
   return {
-    pick(m, camera, cssW, cssH, px, py) {
+    pick(m, camera, cssW, cssH, px, py, dpr) {
       if (cssW <= 0 || cssH <= 0) return null;
       if (px < 0 || py < 0 || px >= cssW || py >= cssH) return null;
-
-      if (buf.width !== cssW || buf.height !== cssH) {
-        buf.width = cssW;
-        buf.height = cssH;
+      if (m.sx * m.sy * m.sz > MAX_PICKABLE_VOXELS) {
+        throw new RangeError(
+          `model exceeds picker capacity (${m.sx}x${m.sy}x${m.sz} > ${MAX_PICKABLE_VOXELS} voxels)`,
+        );
       }
-      bctx.setTransform(1, 0, 0, 1, 0, 0);
+
+      // Sample at the visible canvas's backing resolution so anti-aliased edges line up.
+      const bw = Math.max(1, Math.floor(cssW * dpr));
+      const bh = Math.max(1, Math.floor(cssH * dpr));
+      if (buf.width !== bw || buf.height !== bh) {
+        buf.width = bw;
+        buf.height = bh;
+      }
+      bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       bctx.fillStyle = '#000000';
       bctx.fillRect(0, 0, cssW, cssH);
 
@@ -81,7 +90,9 @@ export function createPicker(): Picker {
         drawFacePath(bctx, f);
       });
 
-      const data = bctx.getImageData(Math.floor(px), Math.floor(py), 1, 1).data;
+      const sx = Math.min(bw - 1, Math.max(0, Math.floor(px * dpr)));
+      const sy = Math.min(bh - 1, Math.max(0, Math.floor(py * dpr)));
+      const data = bctx.getImageData(sx, sy, 1, 1).data;
       if (data[3] !== 255) return null;
       const id = data[0]! | (data[1]! << 8) | (data[2]! << 16);
       const decoded = decodeFaceId(m, id);
