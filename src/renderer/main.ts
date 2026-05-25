@@ -83,6 +83,20 @@ canvas.addEventListener('click', (e) => {
   draw();
 });
 
+canvas.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  if (!(canvas instanceof HTMLCanvasElement)) return;
+  const rect = canvas.getBoundingClientRect();
+  const px = e.clientX - rect.left;
+  const py = e.clientY - rect.top;
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  const hit = picker.pick(model, cameraFor(w, h), w, h, px, py, currentDpr());
+  if (!hit) return;
+  setVoxel(model, hit.x, hit.y, hit.z, 0);
+  draw();
+});
+
 window.addEventListener('keydown', (e) => {
   if (e.repeat) return;
   if (e.key === 'q' || e.key === 'Q') {
