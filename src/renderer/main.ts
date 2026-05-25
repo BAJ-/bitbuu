@@ -1,4 +1,5 @@
-import { createModel, setVoxel } from '../core/model';
+import { createModel, getVoxel, setVoxel } from '../core/model';
+import { createPicker } from '../core/picking';
 import { render, type Camera, type Yaw } from '../core/render';
 
 const canvas = document.getElementById('stage');
@@ -20,11 +21,21 @@ model.palette[7] = 0xff;
 const c = GRID >> 1;
 setVoxel(model, c, c, c, 1);
 
+const picker = createPicker();
+
 const ZOOM_MIN = 4;
 const ZOOM_MAX = 96;
 const ZOOM_STEP = 1.15;
 let zoom = 48;
 let yaw: Yaw = 0;
+
+function cameraFor(w: number, h: number): Camera {
+  // Centre on the placed voxel: a voxel at (a,b,c) projects to
+  // ((a-b)*zoom + panX, (a+b)*zoom/2 - c*zoom + panY). With a=b=c the first
+  // term is 0 and the second simplifies to 0, so the voxel's centre lands at
+  // (panX, panY) at every yaw.
+  return { yaw, zoom, panX: w / 2, panY: h / 2 };
+}
 
 function draw(): void {
   if (!(canvas instanceof HTMLCanvasElement) || !ctx) return;
@@ -38,18 +49,7 @@ function draw(): void {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = '#1e1e1e';
   ctx.fillRect(0, 0, w, h);
-
-  // Centre on the placed voxel: a voxel at (a,b,c) projects to
-  // ((a-b)*zoom + panX, (a+b)*zoom/2 - c*zoom + panY). With a=b=c the first
-  // term is 0 and the second simplifies to 0, so the voxel's centre lands at
-  // (panX, panY). Math...
-  const camera: Camera = {
-    yaw,
-    zoom,
-    panX: w / 2,
-    panY: h / 2,
-  };
-  render(model, camera, ctx);
+  render(model, cameraFor(w, h), ctx);
 }
 
 canvas.addEventListener(
@@ -64,6 +64,24 @@ canvas.addEventListener(
   },
   { passive: false },
 );
+
+canvas.addEventListener('click', (e) => {
+  if (!(canvas instanceof HTMLCanvasElement)) return;
+  const rect = canvas.getBoundingClientRect();
+  const px = e.clientX - rect.left;
+  const py = e.clientY - rect.top;
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  const hit = picker.pick(model, cameraFor(w, h), w, h, px, py);
+  if (!hit) return;
+  const nx = hit.x + hit.nx;
+  const ny = hit.y + hit.ny;
+  const nz = hit.z + hit.nz;
+  if (nx < 0 || ny < 0 || nz < 0 || nx >= model.sx || ny >= model.sy || nz >= model.sz) return;
+  if (getVoxel(model, nx, ny, nz) !== 0) return;
+  setVoxel(model, nx, ny, nz, 1);
+  draw();
+});
 
 window.addEventListener('keydown', (e) => {
   if (e.repeat) return;

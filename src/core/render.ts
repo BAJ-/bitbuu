@@ -75,7 +75,33 @@ const YAWS: readonly [YawConfig, YawConfig, YawConfig, YawConfig] = [
   },
 ];
 
-export function render(m: Model, camera: Camera, ctx: CanvasRenderingContext2D): void {
+export const FACE_TOP = 0;
+export const FACE_RIGHT = 1;
+export const FACE_LEFT = 2;
+export type FaceKind = 0 | 1 | 2;
+
+export interface VisibleFace {
+  v: number;
+  x: number;
+  y: number;
+  z: number;
+  ox: number;
+  oy: number;
+  cell: number;
+  halfH: number;
+  kind: FaceKind;
+}
+
+export function faceNormal(yaw: Yaw, kind: FaceKind): readonly [number, number, number] {
+  if (kind === FACE_TOP) return [0, 0, 1];
+  const cfg = YAWS[yaw];
+  const [dx, dy] = kind === FACE_RIGHT ? cfg.right : cfg.left;
+  return [dx, dy, 0];
+}
+
+// Mutable scratch face passed to the callback to avoid per-face allocation.
+// Callers must not retain the reference.
+export function forEachVisibleFace(m: Model, camera: Camera, cb: (f: VisibleFace) => void): void {
   const cfg = YAWS[camera.yaw];
   const cell = camera.zoom;
   const halfH = cell / 2;
@@ -88,6 +114,18 @@ export function render(m: Model, camera: Camera, ctx: CanvasRenderingContext2D):
   const [rdx, rdy] = cfg.right;
   const [ldx, ldy] = cfg.left;
 
+  const face: VisibleFace = {
+    v: 0,
+    x: 0,
+    y: 0,
+    z: 0,
+    ox: 0,
+    oy: 0,
+    cell,
+    halfH,
+    kind: FACE_TOP,
+  };
+
   for (let z = 0; z < m.sz; z++) {
     for (let y = startY; y !== endY; y += cfg.stepY) {
       for (let x = startX; x !== endX; x += cfg.stepX) {
@@ -98,7 +136,6 @@ export function render(m: Model, camera: Camera, ctx: CanvasRenderingContext2D):
         const leftN = voxelAt(m, x + ldx, y + ldy, z);
         const topN = voxelAt(m, x, y, z + 1);
 
-        // Buried voxels contribute nothing on screen — skip the per-face work.
         if (
           rightN !== 0 &&
           leftN !== 0 &&
@@ -114,42 +151,58 @@ export function render(m: Model, camera: Camera, ctx: CanvasRenderingContext2D):
         const ox = (rx - ry) * cell + camera.panX;
         const oy = (rx + ry) * halfH - z * cell + camera.panY;
 
-        // Top face (+z): hidden by the voxel directly above.
+        face.v = v;
+        face.x = x;
+        face.y = y;
+        face.z = z;
+        face.ox = ox;
+        face.oy = oy;
+
         if (topN === 0) {
-          ctx.fillStyle = fillStyleFor(m, v, SHADE_TOP);
-          ctx.beginPath();
-          ctx.moveTo(ox, oy - cell);
-          ctx.lineTo(ox + cell, oy - halfH);
-          ctx.lineTo(ox, oy);
-          ctx.lineTo(ox - cell, oy - halfH);
-          ctx.closePath();
-          ctx.fill();
+          face.kind = FACE_TOP;
+          cb(face);
         }
-
-        // Right face (+X'): hidden by the +X' neighbour in model coords.
         if (rightN === 0) {
-          ctx.fillStyle = fillStyleFor(m, v, SHADE_RIGHT);
-          ctx.beginPath();
-          ctx.moveTo(ox + cell, oy + halfH);
-          ctx.lineTo(ox, oy + cell);
-          ctx.lineTo(ox, oy);
-          ctx.lineTo(ox + cell, oy - halfH);
-          ctx.closePath();
-          ctx.fill();
+          face.kind = FACE_RIGHT;
+          cb(face);
         }
-
-        // Left face (+Y'): hidden by the +Y' neighbour in model coords.
         if (leftN === 0) {
-          ctx.fillStyle = fillStyleFor(m, v, SHADE_LEFT);
-          ctx.beginPath();
-          ctx.moveTo(ox - cell, oy + halfH);
-          ctx.lineTo(ox, oy + cell);
-          ctx.lineTo(ox, oy);
-          ctx.lineTo(ox - cell, oy - halfH);
-          ctx.closePath();
-          ctx.fill();
+          face.kind = FACE_LEFT;
+          cb(face);
         }
       }
     }
   }
+}
+
+export function drawFacePath(ctx: CanvasRenderingContext2D, f: VisibleFace): void {
+  const { ox, oy, cell, halfH, kind } = f;
+  ctx.beginPath();
+  if (kind === FACE_TOP) {
+    ctx.moveTo(ox, oy - cell);
+    ctx.lineTo(ox + cell, oy - halfH);
+    ctx.lineTo(ox, oy);
+    ctx.lineTo(ox - cell, oy - halfH);
+  } else if (kind === FACE_RIGHT) {
+    ctx.moveTo(ox + cell, oy + halfH);
+    ctx.lineTo(ox, oy + cell);
+    ctx.lineTo(ox, oy);
+    ctx.lineTo(ox + cell, oy - halfH);
+  } else {
+    ctx.moveTo(ox - cell, oy + halfH);
+    ctx.lineTo(ox, oy + cell);
+    ctx.lineTo(ox, oy);
+    ctx.lineTo(ox - cell, oy - halfH);
+  }
+  ctx.closePath();
+  ctx.fill();
+}
+
+export function render(m: Model, camera: Camera, ctx: CanvasRenderingContext2D): void {
+  forEachVisibleFace(m, camera, (f) => {
+    const shade =
+      f.kind === FACE_TOP ? SHADE_TOP : f.kind === FACE_RIGHT ? SHADE_RIGHT : SHADE_LEFT;
+    ctx.fillStyle = fillStyleFor(m, f.v, shade);
+    drawFacePath(ctx, f);
+  });
 }
