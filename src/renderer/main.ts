@@ -13,15 +13,36 @@ if (!ctx) {
 
 const GRID = 32;
 const model = createModel(GRID, GRID, GRID);
-// Override palette slot 1 with main colour until a real palette UI exists.
-model.palette[4] = 0xd0;
-model.palette[5] = 0xe9;
-model.palette[6] = 0xc0;
-model.palette[7] = 0xff;
+let activeSlot = 11;
 const c = GRID >> 1;
-setVoxel(model, c, c, c, 1);
+setVoxel(model, c, c, c, activeSlot);
 
 const picker = createPicker();
+
+const paletteEl = document.getElementById('palette');
+if (!(paletteEl instanceof HTMLElement)) {
+  throw new Error('div#palette missing');
+}
+const swatches: HTMLButtonElement[] = [];
+for (let slot = 1; slot <= 16; slot++) {
+  const o = slot * 4;
+  const r = model.palette[o]!;
+  const g = model.palette[o + 1]!;
+  const b = model.palette[o + 2]!;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.style.backgroundColor = `rgb(${r},${g},${b})`;
+  btn.setAttribute('aria-label', `Slot ${slot}`);
+  btn.setAttribute('aria-pressed', slot === activeSlot ? 'true' : 'false');
+  btn.addEventListener('click', () => {
+    activeSlot = slot;
+    for (const s of swatches) {
+      s.setAttribute('aria-pressed', s === btn ? 'true' : 'false');
+    }
+  });
+  paletteEl.appendChild(btn);
+  swatches.push(btn);
+}
 
 const ZOOM_MIN = 4;
 const ZOOM_MAX = 96;
@@ -79,7 +100,7 @@ canvas.addEventListener('click', (e) => {
   const nz = hit.z + hit.nz;
   if (nx < 0 || ny < 0 || nz < 0 || nx >= model.sx || ny >= model.sy || nz >= model.sz) return;
   if (getVoxel(model, nx, ny, nz) !== 0) return;
-  setVoxel(model, nx, ny, nz, 1);
+  setVoxel(model, nx, ny, nz, activeSlot);
   draw();
 });
 
