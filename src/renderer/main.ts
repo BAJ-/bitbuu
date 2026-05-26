@@ -1,101 +1,59 @@
 import { createModel, getVoxel, setVoxel } from '../core/model';
 import { createHistory } from '../core/history';
 import { createPicker } from '../core/picking';
-import { render, type Camera, type Yaw } from '../core/render';
+import { createCamera } from './camera';
+import { mountPalette } from './palette';
+import { createView } from './view';
+import { mountPan } from './pan';
 
-const canvas = document.getElementById('stage');
-if (!(canvas instanceof HTMLCanvasElement)) {
+const canvasEl = document.getElementById('stage');
+if (!(canvasEl instanceof HTMLCanvasElement)) {
   throw new Error('canvas#stage missing');
 }
-const ctx = canvas.getContext('2d');
-if (!ctx) {
-  throw new Error('2d context unavailable');
-}
-
-const GRID = 32;
-const model = createModel(GRID, GRID, GRID);
-let activeSlot = 11;
-const c = GRID >> 1;
-setVoxel(model, c, c, c, activeSlot);
-
-const picker = createPicker();
-const history = createHistory();
-
 const paletteEl = document.getElementById('palette');
 if (!(paletteEl instanceof HTMLElement)) {
   throw new Error('div#palette missing');
 }
-const swatches: HTMLButtonElement[] = [];
-for (let slot = 1; slot <= 16; slot++) {
-  const o = slot * 4;
-  const r = model.palette[o]!;
-  const g = model.palette[o + 1]!;
-  const b = model.palette[o + 2]!;
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.style.backgroundColor = `rgb(${r},${g},${b})`;
-  btn.setAttribute('aria-label', `Slot ${slot}`);
-  btn.setAttribute('aria-pressed', slot === activeSlot ? 'true' : 'false');
-  btn.addEventListener('click', () => {
-    activeSlot = slot;
-    for (const s of swatches) {
-      s.setAttribute('aria-pressed', s === btn ? 'true' : 'false');
-    }
-  });
-  paletteEl.appendChild(btn);
-  swatches.push(btn);
-}
+const canvas: HTMLCanvasElement = canvasEl;
 
-const ZOOM_MIN = 4;
-const ZOOM_MAX = 96;
-const ZOOM_STEP = 1.15;
-let zoom = 48;
-let yaw: Yaw = 0;
+const GRID = 32;
+const INITIAL_SLOT = 11;
+const model = createModel(GRID, GRID, GRID);
+const c = GRID >> 1;
+setVoxel(model, c, c, c, INITIAL_SLOT);
 
-function cameraFor(w: number, h: number): Camera {
-  return { yaw, zoom, panX: w / 2, panY: h / 2 };
-}
-
-function draw(): void {
-  if (!(canvas instanceof HTMLCanvasElement) || !ctx) return;
-  const dpr = currentDpr();
-  const w = canvas.clientWidth;
-  const h = canvas.clientHeight;
-  if (canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)) {
-    canvas.width = Math.floor(w * dpr);
-    canvas.height = Math.floor(h * dpr);
-  }
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.fillStyle = '#1e1e1e';
-  ctx.fillRect(0, 0, w, h);
-  render(model, cameraFor(w, h), ctx);
-}
-
-function currentDpr(): number {
-  return Math.min(window.devicePixelRatio || 1, 2);
-}
+const picker = createPicker();
+const history = createHistory();
+const camera = createCamera();
+const palette = mountPalette(paletteEl, model, INITIAL_SLOT);
+const view = createView(canvas, model, camera);
+const pan = mountPan(canvas, camera, view.draw);
 
 canvas.addEventListener(
   'wheel',
   (e) => {
     e.preventDefault();
-    const factor = e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP;
-    const next = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom * factor));
-    if (next === zoom) return;
-    zoom = next;
-    draw();
+    if (e.deltaY < 0) camera.zoomIn();
+    else camera.zoomOut();
+    view.draw();
   },
   { passive: false },
 );
 
 canvas.addEventListener('click', (e) => {
-  if (!(canvas instanceof HTMLCanvasElement)) return;
+  if (pan.isClickSuppressed()) return;
   const rect = canvas.getBoundingClientRect();
-  const px = e.clientX - rect.left;
-  const py = e.clientY - rect.top;
   const w = canvas.clientWidth;
   const h = canvas.clientHeight;
-  const hit = picker.pick(model, cameraFor(w, h), w, h, px, py, currentDpr());
+  const hit = picker.pick(
+    model,
+    camera.forCanvas(w, h),
+    w,
+    h,
+    e.clientX - rect.left,
+    e.clientY - rect.top,
+    view.currentDpr(),
+  );
   if (!hit) return;
   const nx = hit.x + hit.nx;
   const ny = hit.y + hit.ny;
@@ -103,45 +61,61 @@ canvas.addEventListener('click', (e) => {
   if (nx < 0 || ny < 0 || nz < 0 || nx >= model.sx || ny >= model.sy || nz >= model.sz) return;
   if (getVoxel(model, nx, ny, nz) !== 0) return;
   history.push(model.voxels);
-  setVoxel(model, nx, ny, nz, activeSlot);
-  draw();
+  setVoxel(model, nx, ny, nz, palette.getActiveSlot());
+  view.draw();
 });
 
 canvas.addEventListener('contextmenu', (e) => {
   e.preventDefault();
   if (e.button !== 2) return;
-  if (!(canvas instanceof HTMLCanvasElement)) return;
   const rect = canvas.getBoundingClientRect();
-  const px = e.clientX - rect.left;
-  const py = e.clientY - rect.top;
   const w = canvas.clientWidth;
   const h = canvas.clientHeight;
-  const hit = picker.pick(model, cameraFor(w, h), w, h, px, py, currentDpr());
+  const hit = picker.pick(
+    model,
+    camera.forCanvas(w, h),
+    w,
+    h,
+    e.clientX - rect.left,
+    e.clientY - rect.top,
+    view.currentDpr(),
+  );
   if (!hit) return;
   history.push(model.voxels);
   setVoxel(model, hit.x, hit.y, hit.z, 0);
-  draw();
+  view.draw();
 });
 
 window.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' && !e.repeat) {
+    if (!(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
+      e.preventDefault();
+      pan.setSpaceHeld(true);
+    }
+  }
   if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === 'z') {
     e.preventDefault();
     const next = e.shiftKey ? history.redo(model.voxels) : history.undo(model.voxels);
     if (next) {
       model.voxels.set(next);
-      draw();
+      view.draw();
     }
     return;
   }
   if (e.repeat) return;
   if (e.key === 'q' || e.key === 'Q') {
-    yaw = ((yaw + 3) % 4) as Yaw;
-    draw();
+    camera.rotateBy(-1);
+    view.draw();
   } else if (e.key === 'e' || e.key === 'E') {
-    yaw = ((yaw + 1) % 4) as Yaw;
-    draw();
+    camera.rotateBy(1);
+    view.draw();
   }
 });
 
-window.addEventListener('resize', draw);
-draw();
+window.addEventListener('keyup', (e) => {
+  if (e.code === 'Space') pan.setSpaceHeld(false);
+});
+window.addEventListener('blur', () => pan.setSpaceHeld(false));
+window.addEventListener('resize', view.draw);
+
+view.draw();
