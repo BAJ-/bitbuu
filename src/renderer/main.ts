@@ -1,4 +1,5 @@
 import { createModel, getVoxel, setVoxel } from '../core/model';
+import { createHistory } from '../core/history';
 import { createPicker } from '../core/picking';
 import { render, type Camera, type Yaw } from '../core/render';
 
@@ -18,6 +19,7 @@ const c = GRID >> 1;
 setVoxel(model, c, c, c, activeSlot);
 
 const picker = createPicker();
+const history = createHistory();
 
 const paletteEl = document.getElementById('palette');
 if (!(paletteEl instanceof HTMLElement)) {
@@ -100,6 +102,7 @@ canvas.addEventListener('click', (e) => {
   const nz = hit.z + hit.nz;
   if (nx < 0 || ny < 0 || nz < 0 || nx >= model.sx || ny >= model.sy || nz >= model.sz) return;
   if (getVoxel(model, nx, ny, nz) !== 0) return;
+  history.push(model.voxels);
   setVoxel(model, nx, ny, nz, activeSlot);
   draw();
 });
@@ -115,11 +118,21 @@ canvas.addEventListener('contextmenu', (e) => {
   const h = canvas.clientHeight;
   const hit = picker.pick(model, cameraFor(w, h), w, h, px, py, currentDpr());
   if (!hit) return;
+  history.push(model.voxels);
   setVoxel(model, hit.x, hit.y, hit.z, 0);
   draw();
 });
 
 window.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === 'z') {
+    e.preventDefault();
+    const next = e.shiftKey ? history.redo(model.voxels) : history.undo(model.voxels);
+    if (next) {
+      model.voxels.set(next);
+      draw();
+    }
+    return;
+  }
   if (e.repeat) return;
   if (e.key === 'q' || e.key === 'Q') {
     yaw = ((yaw + 3) % 4) as Yaw;
