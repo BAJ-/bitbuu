@@ -88,7 +88,14 @@ canvas.addEventListener('contextmenu', (e) => {
 
 window.addEventListener('keydown', (e) => {
   if (e.code === 'Space' && !e.repeat) {
-    if (!(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
+    if (
+      !(
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLButtonElement ||
+        (e.target instanceof HTMLElement && e.target.isContentEditable)
+      )
+    ) {
       e.preventDefault();
       pan.setSpaceHeld(true);
     }

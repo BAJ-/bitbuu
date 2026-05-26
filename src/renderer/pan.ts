@@ -15,6 +15,7 @@ export function mountPan(
   let active = false;
   let suppressClick = false;
   let spaceHeld = false;
+  let activeButton: 0 | 1 | null = null;
 
   function updateCursor(): void {
     canvas.style.cursor = active ? 'grabbing' : spaceHeld ? 'grab' : '';
@@ -27,6 +28,7 @@ export function mountPan(
     e.preventDefault();
     active = true;
     suppressClick = false;
+    activeButton = e.button as 0 | 1;
     lastX = e.clientX;
     lastY = e.clientY;
     canvas.setPointerCapture(e.pointerId);
@@ -41,13 +43,16 @@ export function mountPan(
     camera.panBy(dx, dy);
     lastX = e.clientX;
     lastY = e.clientY;
-    suppressClick = true;
+    if (activeButton === 0) {
+      suppressClick = true;
+    }
     onChange();
   });
 
   function end(e: PointerEvent): void {
     if (!active) return;
     active = false;
+    activeButton = null;
     canvas.releasePointerCapture(e.pointerId);
     updateCursor();
   }
