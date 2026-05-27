@@ -1,6 +1,7 @@
 import { createModel, getVoxel, setVoxel } from '../core/model';
 import { createHistory } from '../core/history';
 import { createPicker } from '../core/picking';
+import { decodeModel, encodeModel } from '../core/io';
 import { createCamera } from './camera';
 import { mountPalette } from './palette';
 import { createView } from './view';
@@ -23,11 +24,48 @@ const c = GRID >> 1;
 setVoxel(model, c, c, c, INITIAL_SLOT);
 
 const picker = createPicker();
-const history = createHistory();
+let history = createHistory();
 const camera = createCamera();
 const palette = mountPalette(paletteEl, model, INITIAL_SLOT);
 const view = createView(canvas, model, camera);
 const pan = mountPan(canvas, camera, view.draw);
+let dirty = false;
+
+async function save(): Promise<boolean> {
+  const bytes = encodeModel(model, history);
+  const result = await window.bitbuu.saveModel(bytes);
+  if (result.canceled) return false;
+  dirty = false;
+  return true;
+}
+
+async function open(): Promise<void> {
+  const result = await window.bitbuu.openModel();
+  if (result.canceled || !result.bytes) return;
+  let decoded;
+  try {
+    decoded = decodeModel(result.bytes);
+  } catch (err) {
+    window.alert(`Could not open file: ${(err as Error).message}`);
+    return;
+  }
+  if (
+    decoded.model.sx !== model.sx ||
+    decoded.model.sy !== model.sy ||
+    decoded.model.sz !== model.sz
+  ) {
+    window.alert(
+      `Could not open file: dimensions ${decoded.model.sx}x${decoded.model.sy}x${decoded.model.sz} do not match current ${model.sx}x${model.sy}x${model.sz}.`,
+    );
+    return;
+  }
+  model.voxels.set(decoded.model.voxels);
+  model.palette.set(decoded.model.palette);
+  history = createHistory({ undo: decoded.history.undo, redo: decoded.history.redo });
+  palette.refresh();
+  dirty = false;
+  view.draw();
+}
 
 canvas.addEventListener(
   'wheel',
@@ -62,6 +100,7 @@ canvas.addEventListener('click', (e) => {
   if (getVoxel(model, nx, ny, nz) !== 0) return;
   history.push(model.voxels);
   setVoxel(model, nx, ny, nz, palette.getActiveSlot());
+  dirty = true;
   view.draw();
 });
 
@@ -83,6 +122,7 @@ canvas.addEventListener('contextmenu', (e) => {
   if (!hit) return;
   history.push(model.voxels);
   setVoxel(model, hit.x, hit.y, hit.z, 0);
+  dirty = true;
   view.draw();
 });
 
@@ -105,8 +145,19 @@ window.addEventListener('keydown', (e) => {
     const next = e.shiftKey ? history.redo(model.voxels) : history.undo(model.voxels);
     if (next) {
       model.voxels.set(next);
+      dirty = true;
       view.draw();
     }
+    return;
+  }
+  if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 's') {
+    e.preventDefault();
+    void save();
+    return;
+  }
+  if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'o') {
+    e.preventDefault();
+    void open();
     return;
   }
   if (e.repeat) return;
@@ -124,5 +175,25 @@ window.addEventListener('keyup', (e) => {
 });
 window.addEventListener('blur', () => pan.setSpaceHeld(false));
 window.addEventListener('resize', view.draw);
+
+window.bitbuu.onCloseRequested(() => {
+  void handleCloseRequest();
+});
+
+async function handleCloseRequest(): Promise<void> {
+  if (!dirty) {
+    await window.bitbuu.forceClose();
+    return;
+  }
+  const choice = await window.bitbuu.confirmQuit();
+  if (choice === 'cancel') return;
+  if (choice === 'discard') {
+    await window.bitbuu.forceClose();
+    return;
+  }
+  const saved = await save();
+  if (!saved) return;
+  await window.bitbuu.forceClose();
+}
 
 view.draw();
