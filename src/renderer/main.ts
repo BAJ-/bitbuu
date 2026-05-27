@@ -3,6 +3,7 @@ import { createHistory } from '../core/history';
 import { createPicker } from '../core/picking';
 import { decodeModel, encodeModel } from '../core/io';
 import { createCamera } from './camera';
+import { mountMenu } from './menu';
 import { mountPalette } from './palette';
 import { createView } from './view';
 import { mountPan } from './pan';
@@ -179,6 +180,16 @@ window.addEventListener('resize', view.draw);
 window.bitbuu.onCloseRequested(() => {
   void handleCloseRequest();
 });
+
+const modKey = /Mac/i.test(navigator.platform) ? '⌘' : 'Ctrl+';
+mountMenu(
+  document.getElementById('menu-toggle') as HTMLButtonElement,
+  document.getElementById('drawer') as HTMLElement,
+  [
+    { label: 'Open…', shortcut: `${modKey}O`, onClick: () => void open() },
+    { label: 'Save…', shortcut: `${modKey}S`, onClick: () => void save() },
+  ],
+);
 
 async function handleCloseRequest(): Promise<void> {
   if (!dirty) {

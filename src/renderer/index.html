@@ -52,10 +52,88 @@
       #palette button[aria-pressed='true'] {
         border-color: #fff;
       }
+      #menu-toggle {
+        position: fixed;
+        top: 8px;
+        left: 8px;
+        z-index: 20;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        color: #eee;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        padding: 0;
+      }
+      #menu-toggle:hover,
+      #menu-toggle:focus-visible {
+        background: rgba(255, 255, 255, 0.1);
+        outline: none;
+      }
+      #drawer {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 240px;
+        height: 100vh;
+        background: #2a2a2a;
+        border-right: 1px solid #444;
+        padding: 56px 12px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        transform: translateX(-100%);
+        transition: transform 160ms ease-out;
+        z-index: 10;
+      }
+      #drawer.open {
+        transform: translateX(0);
+      }
+      #drawer .menu-action {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        background: transparent;
+        color: #eee;
+        border: none;
+        padding: 8px 10px;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+        border-radius: 4px;
+      }
+      #drawer .menu-action:hover,
+      #drawer .menu-action:focus-visible {
+        background: rgba(255, 255, 255, 0.08);
+        outline: none;
+      }
+      #drawer .menu-shortcut {
+        color: #888;
+        font-size: 12px;
+      }
     </style>
   </head>
   <body>
     <canvas id="stage"></canvas>
+    <button
+      id="menu-toggle"
+      type="button"
+      aria-label="Menu"
+      aria-controls="drawer"
+      aria-expanded="false"
+    >
+      <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+        <rect x="2" y="4" width="16" height="2" rx="1" fill="currentColor" />
+        <rect x="2" y="9" width="16" height="2" rx="1" fill="currentColor" />
+        <rect x="2" y="14" width="16" height="2" rx="1" fill="currentColor" />
+      </svg>
+    </button>
+    <aside id="drawer" aria-label="Menu" inert></aside>
     <div id="palette" role="toolbar" aria-label="Palette"></div>
     <script type="module" src="./main.ts"></script>
   </body>
