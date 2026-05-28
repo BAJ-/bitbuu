@@ -1,5 +1,6 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import * as path from 'node:path';
+import { readFile, writeFile } from 'node:fs/promises';
 
 const DEV_URL = process.env.VITE_DEV_SERVER_URL;
 
@@ -24,6 +25,56 @@ app.on('web-contents-created', (_event, contents) => {
 
 ipcMain.handle('ping', () => 'pong' as const);
 
+const FILE_FILTERS = [{ name: 'bitbuu model', extensions: ['buu'] }];
+const forceClosing = new WeakSet<BrowserWindow>();
+
+ipcMain.handle('model:save', async (event, bytes: Uint8Array) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return { canceled: true };
+  const result = await dialog.showSaveDialog(win, {
+    filters: FILE_FILTERS,
+    defaultPath: 'model.buu',
+  });
+  if (result.canceled || !result.filePath) return { canceled: true };
+  await writeFile(result.filePath, bytes);
+  return { canceled: false };
+});
+
+ipcMain.handle('model:open', async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return { canceled: true };
+  const result = await dialog.showOpenDialog(win, {
+    filters: FILE_FILTERS,
+    properties: ['openFile'],
+  });
+  if (result.canceled || result.filePaths.length === 0) return { canceled: true };
+  const buf = await readFile(result.filePaths[0]!);
+  return { canceled: false, bytes: new Uint8Array(buf) };
+});
+
+ipcMain.handle('app:confirm-quit', async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return 'discard' as const;
+  const result = await dialog.showMessageBox(win, {
+    type: 'question',
+    buttons: ['Save', "Don't Save", 'Cancel'],
+    defaultId: 0,
+    cancelId: 2,
+    message: 'Save changes before closing?',
+    detail: 'Your changes will be lost if you close without saving.',
+  });
+  if (result.response === 0) return 'save' as const;
+  if (result.response === 1) return 'discard' as const;
+  return 'cancel' as const;
+});
+
+ipcMain.handle('app:force-close', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return;
+  forceClosing.add(win);
+  win.close();
+});
+
 async function createWindow(): Promise<void> {
   const win = new BrowserWindow({
     width: 1280,
@@ -44,6 +95,13 @@ async function createWindow(): Promise<void> {
   } else {
     await win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
   }
+
+  win.on('close', (event) => {
+    if (forceClosing.has(win)) return;
+    event.preventDefault();
+    if (win.webContents.isDestroyed()) return;
+    win.webContents.send('app:close-requested');
+  });
 }
 
 app.whenReady().then(() => {

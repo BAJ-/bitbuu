@@ -1,14 +1,21 @@
+export interface HistoryInit {
+  readonly undo: ReadonlyArray<Uint8Array>;
+  readonly redo: ReadonlyArray<Uint8Array>;
+}
+
 export interface History {
   push(state: Uint8Array): void;
   undo(current: Uint8Array): Uint8Array | null;
   redo(current: Uint8Array): Uint8Array | null;
   readonly canUndo: boolean;
   readonly canRedo: boolean;
+  readonly undoStack: ReadonlyArray<Uint8Array>;
+  readonly redoStack: ReadonlyArray<Uint8Array>;
 }
 
-export function createHistory(): History {
-  const undoStack: Uint8Array[] = [];
-  const redoStack: Uint8Array[] = [];
+export function createHistory(initial?: HistoryInit): History {
+  const undoStack: Uint8Array[] = initial ? initial.undo.map((s) => new Uint8Array(s)) : [];
+  const redoStack: Uint8Array[] = initial ? initial.redo.map((s) => new Uint8Array(s)) : [];
 
   return {
     push(state) {
@@ -32,6 +39,12 @@ export function createHistory(): History {
     },
     get canRedo() {
       return redoStack.length > 0;
+    },
+    get undoStack() {
+      return undoStack;
+    },
+    get redoStack() {
+      return redoStack;
     },
   };
 }
