@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-export type QuitChoice = 'save' | 'discard' | 'cancel';
+export type DiscardChoice = 'save' | 'discard' | 'cancel';
 
 const api = Object.freeze({
   platform: process.platform,
@@ -9,7 +9,7 @@ const api = Object.freeze({
     ipcRenderer.invoke('model:save', bytes),
   openModel: (): Promise<{ canceled: boolean; bytes?: Uint8Array }> =>
     ipcRenderer.invoke('model:open'),
-  confirmDiscard: (): Promise<QuitChoice> => ipcRenderer.invoke('app:confirm-discard'),
+  confirmDiscard: (): Promise<DiscardChoice> => ipcRenderer.invoke('app:confirm-discard'),
   forceClose: (): Promise<void> => ipcRenderer.invoke('app:force-close'),
   onCloseRequested: (callback: () => void): void => {
     ipcRenderer.removeAllListeners('app:close-requested');
