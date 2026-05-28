@@ -31,6 +31,7 @@ const palette = mountPalette(paletteEl, model, INITIAL_SLOT);
 const view = createView(canvas, model, camera);
 const pan = mountPan(canvas, camera, view.draw);
 let dirty = false;
+let closeInFlight = false;
 
 async function save(): Promise<boolean> {
   const bytes = encodeModel(model, history);
@@ -181,7 +182,7 @@ window.bitbuu.onCloseRequested(() => {
   void handleCloseRequest();
 });
 
-const modKey = /Mac/i.test(navigator.platform) ? '⌘' : 'Ctrl+';
+const modKey = window.bitbuu.platform === 'darwin' ? '⌘' : 'Ctrl+';
 mountMenu(
   document.getElementById('menu-toggle') as HTMLButtonElement,
   document.getElementById('drawer') as HTMLElement,
@@ -192,19 +193,25 @@ mountMenu(
 );
 
 async function handleCloseRequest(): Promise<void> {
-  if (!dirty) {
+  if (closeInFlight) return;
+  closeInFlight = true;
+  try {
+    if (!dirty) {
+      await window.bitbuu.forceClose();
+      return;
+    }
+    const choice = await window.bitbuu.confirmQuit();
+    if (choice === 'cancel') return;
+    if (choice === 'discard') {
+      await window.bitbuu.forceClose();
+      return;
+    }
+    const saved = await save();
+    if (!saved) return;
     await window.bitbuu.forceClose();
-    return;
+  } finally {
+    closeInFlight = false;
   }
-  const choice = await window.bitbuu.confirmQuit();
-  if (choice === 'cancel') return;
-  if (choice === 'discard') {
-    await window.bitbuu.forceClose();
-    return;
-  }
-  const saved = await save();
-  if (!saved) return;
-  await window.bitbuu.forceClose();
 }
 
 view.draw();

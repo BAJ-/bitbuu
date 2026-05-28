@@ -99,6 +99,7 @@ async function createWindow(): Promise<void> {
   win.on('close', (event) => {
     if (forceClosing.has(win)) return;
     event.preventDefault();
+    if (win.webContents.isDestroyed()) return;
     win.webContents.send('app:close-requested');
   });
 }

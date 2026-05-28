@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 export type QuitChoice = 'save' | 'discard' | 'cancel';
 
 const api = Object.freeze({
+  platform: process.platform,
   ping: (): Promise<'pong'> => ipcRenderer.invoke('ping'),
   saveModel: (bytes: Uint8Array): Promise<{ canceled: boolean }> =>
     ipcRenderer.invoke('model:save', bytes),
@@ -11,6 +12,7 @@ const api = Object.freeze({
   confirmQuit: (): Promise<QuitChoice> => ipcRenderer.invoke('app:confirm-quit'),
   forceClose: (): Promise<void> => ipcRenderer.invoke('app:force-close'),
   onCloseRequested: (callback: () => void): void => {
+    ipcRenderer.removeAllListeners('app:close-requested');
     ipcRenderer.on('app:close-requested', () => callback());
   },
 } as const);
