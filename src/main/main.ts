@@ -52,7 +52,7 @@ ipcMain.handle('model:open', async (event) => {
   return { canceled: false, bytes: new Uint8Array(buf) };
 });
 
-ipcMain.handle('app:confirm-quit', async (event) => {
+ipcMain.handle('app:confirm-discard', async (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (!win) return 'discard' as const;
   const result = await dialog.showMessageBox(win, {
@@ -60,8 +60,8 @@ ipcMain.handle('app:confirm-quit', async (event) => {
     buttons: ['Save', "Don't Save", 'Cancel'],
     defaultId: 0,
     cancelId: 2,
-    message: 'Save changes before closing?',
-    detail: 'Your changes will be lost if you close without saving.',
+    message: 'Save changes to your model?',
+    detail: 'Your changes will be lost if you discard them.',
   });
   if (result.response === 0) return 'save' as const;
   if (result.response === 1) return 'discard' as const;

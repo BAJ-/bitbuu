@@ -1,4 +1,4 @@
-import { createModel, getVoxel, setVoxel } from '../core/model';
+import { createModel, DEFAULT_PALETTE, getVoxel, setVoxel } from '../core/model';
 import { createHistory } from '../core/history';
 import { createPicker } from '../core/picking';
 import { decodeModel, encodeModel } from '../core/io';
@@ -64,6 +64,24 @@ async function open(): Promise<void> {
   model.voxels.set(decoded.model.voxels);
   model.palette.set(decoded.model.palette);
   history = createHistory({ undo: decoded.history.undo, redo: decoded.history.redo });
+  palette.refresh();
+  dirty = false;
+  view.draw();
+}
+
+async function newModel(): Promise<void> {
+  if (dirty) {
+    const choice = await window.bitbuu.confirmDiscard();
+    if (choice === 'cancel') return;
+    if (choice === 'save') {
+      const saved = await save();
+      if (!saved) return;
+    }
+  }
+  model.voxels.fill(0);
+  model.palette.set(DEFAULT_PALETTE);
+  setVoxel(model, c, c, c, INITIAL_SLOT);
+  history = createHistory();
   palette.refresh();
   dirty = false;
   view.draw();
@@ -162,6 +180,11 @@ window.addEventListener('keydown', (e) => {
     void open();
     return;
   }
+  if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'n') {
+    e.preventDefault();
+    void newModel();
+    return;
+  }
   if (e.repeat) return;
   if (e.key === 'q' || e.key === 'Q') {
     camera.rotateBy(-1);
@@ -187,6 +210,7 @@ mountMenu(
   document.getElementById('menu-toggle') as HTMLButtonElement,
   document.getElementById('drawer') as HTMLElement,
   [
+    { label: 'New', shortcut: `${modKey}N`, onClick: () => void newModel() },
     { label: 'Open…', shortcut: `${modKey}O`, onClick: () => void open() },
     { label: 'Save…', shortcut: `${modKey}S`, onClick: () => void save() },
   ],
@@ -200,7 +224,7 @@ async function handleCloseRequest(): Promise<void> {
       await window.bitbuu.forceClose();
       return;
     }
-    const choice = await window.bitbuu.confirmQuit();
+    const choice = await window.bitbuu.confirmDiscard();
     if (choice === 'cancel') return;
     if (choice === 'discard') {
       await window.bitbuu.forceClose();
