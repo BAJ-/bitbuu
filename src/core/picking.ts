@@ -1,5 +1,12 @@
 import type { Model } from './model';
-import { drawFacePath, faceNormal, forEachVisibleFace, type Camera, type FaceKind } from './render';
+import {
+  drawFacePath,
+  FACE_KIND_COUNT,
+  faceNormal,
+  forEachVisibleFace,
+  type Camera,
+  type FaceKind,
+} from './render';
 
 export interface PickedFace {
   // Voxel the face of the cube belongs to.
@@ -15,7 +22,7 @@ export interface PickedFace {
 
 // 24-bit RGB caps the face id at 0xFFFFFF
 export const MAX_PICKABLE_FACES = 0xffffff;
-export const MAX_PICKABLE_VOXELS = Math.floor(MAX_PICKABLE_FACES / 3);
+export const MAX_PICKABLE_VOXELS = Math.floor(MAX_PICKABLE_FACES / FACE_KIND_COUNT);
 
 export function encodeFaceId(id: number): string {
   if (!Number.isInteger(id) || id <= 0 || id > 0xffffff) {
@@ -33,8 +40,8 @@ export function decodeFaceId(
 ): { x: number; y: number; z: number; kind: FaceKind } | null {
   if (id <= 0) return null;
   const id0 = id - 1;
-  const kind = (id0 % 3) as FaceKind;
-  const voxelIdx = (id0 - kind) / 3;
+  const kind = (id0 % FACE_KIND_COUNT) as FaceKind;
+  const voxelIdx = (id0 - kind) / FACE_KIND_COUNT;
   const x = voxelIdx % m.sx;
   const y = Math.floor(voxelIdx / m.sx) % m.sy;
   const z = Math.floor(voxelIdx / (m.sx * m.sy));
@@ -44,7 +51,7 @@ export function decodeFaceId(
 
 export function faceIdFor(m: Model, x: number, y: number, z: number, kind: FaceKind): number {
   const voxelIdx = x + y * m.sx + z * m.sx * m.sy;
-  return voxelIdx * 3 + kind + 1;
+  return voxelIdx * FACE_KIND_COUNT + kind + 1;
 }
 
 export interface Picker {
