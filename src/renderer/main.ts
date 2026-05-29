@@ -192,6 +192,12 @@ window.addEventListener('keydown', (e) => {
   } else if (e.key === 'e' || e.key === 'E') {
     camera.rotateBy(1);
     view.draw();
+  } else if (e.key === 'w' || e.key === 'W') {
+    camera.pitchBy(1);
+    view.draw();
+  } else if (e.key === 's' || e.key === 'S') {
+    camera.pitchBy(-1);
+    view.draw();
   }
 });
 

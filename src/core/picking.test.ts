@@ -1,15 +1,33 @@
 import { describe, expect, it } from 'vitest';
 import { createModel } from './model';
 import { decodeFaceId, encodeFaceId, faceIdFor, MAX_PICKABLE_VOXELS } from './picking';
-import { FACE_LEFT, FACE_RIGHT, FACE_TOP, faceNormal, type FaceKind } from './render';
+import {
+  FACE_BACK_LEFT,
+  FACE_BACK_RIGHT,
+  FACE_BOTTOM,
+  FACE_KIND_COUNT,
+  FACE_LEFT,
+  FACE_RIGHT,
+  FACE_TOP,
+  faceNormal,
+  type FaceKind,
+} from './render';
 
 describe('encodeFaceId / decodeFaceId', () => {
   it('round-trips through RGB encoding for every voxel and face in a small model', () => {
     const m = createModel(3, 4, 5);
+    const kinds = [
+      FACE_TOP,
+      FACE_BOTTOM,
+      FACE_RIGHT,
+      FACE_BACK_LEFT,
+      FACE_LEFT,
+      FACE_BACK_RIGHT,
+    ] as const;
     for (let z = 0; z < m.sz; z++) {
       for (let y = 0; y < m.sy; y++) {
         for (let x = 0; x < m.sx; x++) {
-          for (const kind of [FACE_TOP, FACE_RIGHT, FACE_LEFT] as const) {
+          for (const kind of kinds) {
             const id = faceIdFor(m, x, y, z, kind);
             const colour = encodeFaceId(id);
             const match = /^rgb\((\d+),(\d+),(\d+)\)$/.exec(colour);
@@ -40,13 +58,12 @@ describe('encodeFaceId / decodeFaceId', () => {
 
   it('returns null when decoding ids past the model', () => {
     const m = createModel(2, 2, 2);
-    // Maximum valid id for a 2x2x2 model: 8 voxels * 3 faces = 24.
     expect(decodeFaceId(m, 100)).toBeNull();
   });
 
   it('exposes a voxel capacity that matches the 24-bit RGB encoding', () => {
-    expect(MAX_PICKABLE_VOXELS).toBe(Math.floor(0xffffff / 3));
-    expect(encodeFaceId(MAX_PICKABLE_VOXELS * 3)).toMatch(/^rgb\(\d+,\d+,\d+\)$/);
+    expect(MAX_PICKABLE_VOXELS).toBe(Math.floor(0xffffff / FACE_KIND_COUNT));
+    expect(encodeFaceId(MAX_PICKABLE_VOXELS * FACE_KIND_COUNT)).toMatch(/^rgb\(\d+,\d+,\d+\)$/);
   });
 });
 
@@ -58,21 +75,36 @@ describe('faceNormal', () => {
   });
 
   it('returns horizontal normals for side faces that match the yaw rotation', () => {
-    // At yaw 0, right face is +x and left face is +y.
     expect(faceNormal(0, FACE_RIGHT)).toEqual([1, 0, 0]);
     expect(faceNormal(0, FACE_LEFT)).toEqual([0, 1, 0]);
-    // At yaw 2 (180°), right and left are mirrored.
     expect(faceNormal(2, FACE_RIGHT)).toEqual([-1, 0, 0]);
     expect(faceNormal(2, FACE_LEFT)).toEqual([0, -1, 0]);
   });
 
   it('returns unit-length normals along a single axis for every yaw and side face', () => {
     for (const yaw of [0, 1, 2, 3] as const) {
-      for (const kind of [FACE_RIGHT, FACE_LEFT] as FaceKind[]) {
+      for (const kind of [FACE_RIGHT, FACE_LEFT, FACE_BACK_RIGHT, FACE_BACK_LEFT] as FaceKind[]) {
         const [nx, ny, nz] = faceNormal(yaw, kind);
         expect(nz).toBe(0);
         expect(Math.abs(nx) + Math.abs(ny)).toBe(1);
       }
+    }
+  });
+
+  it('returns (0,0,-1) for the bottom face at every yaw', () => {
+    for (const yaw of [0, 1, 2, 3] as const) {
+      expect(faceNormal(yaw, FACE_BOTTOM)).toEqual([0, 0, -1]);
+    }
+  });
+
+  it('returns back-face normals opposite to their front-face counterparts', () => {
+    for (const yaw of [0, 1, 2, 3] as const) {
+      const r = faceNormal(yaw, FACE_RIGHT);
+      const br = faceNormal(yaw, FACE_BACK_LEFT);
+      expect(br).toEqual([-r[0], -r[1], 0]);
+      const l = faceNormal(yaw, FACE_LEFT);
+      const bl = faceNormal(yaw, FACE_BACK_RIGHT);
+      expect(bl).toEqual([-l[0], -l[1], 0]);
     }
   });
 });
