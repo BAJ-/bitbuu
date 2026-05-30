@@ -23,8 +23,6 @@ app.on('web-contents-created', (_event, contents) => {
   });
 });
 
-ipcMain.handle('ping', () => 'pong' as const);
-
 const FILE_FILTERS = [{ name: 'bitbuu model', extensions: ['buu'] }];
 const forceClosing = new WeakSet<BrowserWindow>();
 
