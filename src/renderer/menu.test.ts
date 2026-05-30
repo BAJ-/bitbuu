@@ -1,23 +1,26 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { mountMenu } from './menu';
+import { mountMenu, type MenuAction } from './menu';
 
-function setup() {
+const disposers: Array<() => void> = [];
+
+function setup(actions: ReadonlyArray<MenuAction>) {
   const toggle = document.createElement('button');
   toggle.setAttribute('aria-expanded', 'false');
   const drawer = document.createElement('div');
   document.body.append(toggle, drawer);
+  disposers.push(mountMenu(toggle, drawer, actions));
   return { toggle, drawer };
 }
 
 afterEach(() => {
+  for (const dispose of disposers.splice(0)) dispose();
   document.body.innerHTML = '';
 });
 
 describe('mountMenu', () => {
   it('renders a button per action with label and optional shortcut', () => {
-    const { toggle, drawer } = setup();
-    mountMenu(toggle, drawer, [
+    const { drawer } = setup([
       { label: 'New', shortcut: 'Cmd+N', onClick: () => {} },
       { label: 'About', onClick: () => {} },
     ]);
@@ -29,8 +32,7 @@ describe('mountMenu', () => {
   });
 
   it('toggle opens and closes the drawer with matching aria-expanded and inert', () => {
-    const { toggle, drawer } = setup();
-    mountMenu(toggle, drawer, [{ label: 'New', onClick: () => {} }]);
+    const { toggle, drawer } = setup([{ label: 'New', onClick: () => {} }]);
 
     toggle.click();
     expect(drawer.classList.contains('open')).toBe(true);
@@ -44,16 +46,14 @@ describe('mountMenu', () => {
   });
 
   it('focuses the first action when opened', () => {
-    const { toggle, drawer } = setup();
-    mountMenu(toggle, drawer, [{ label: 'New', onClick: () => {} }]);
+    const { toggle, drawer } = setup([{ label: 'New', onClick: () => {} }]);
     toggle.click();
     expect(document.activeElement).toBe(drawer.querySelector('button'));
   });
 
   it('invokes the action and closes the drawer when an item is clicked', () => {
-    const { toggle, drawer } = setup();
     const onClick = vi.fn();
-    mountMenu(toggle, drawer, [{ label: 'New', onClick }]);
+    const { toggle, drawer } = setup([{ label: 'New', onClick }]);
     toggle.click();
     drawer.querySelector('button')!.click();
     expect(onClick).toHaveBeenCalledOnce();
@@ -61,8 +61,7 @@ describe('mountMenu', () => {
   });
 
   it('closes on outside pointerdown but not on inside pointerdown', () => {
-    const { toggle, drawer } = setup();
-    mountMenu(toggle, drawer, [{ label: 'New', onClick: () => {} }]);
+    const { toggle, drawer } = setup([{ label: 'New', onClick: () => {} }]);
     toggle.click();
 
     drawer.dispatchEvent(new Event('pointerdown', { bubbles: true }));
@@ -73,8 +72,7 @@ describe('mountMenu', () => {
   });
 
   it('closes on Escape', () => {
-    const { toggle, drawer } = setup();
-    mountMenu(toggle, drawer, [{ label: 'New', onClick: () => {} }]);
+    const { toggle, drawer } = setup([{ label: 'New', onClick: () => {} }]);
     toggle.click();
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     expect(drawer.classList.contains('open')).toBe(false);
