@@ -186,6 +186,7 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (e.repeat) return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.key === 'q' || e.key === 'Q') {
     camera.rotateBy(-1);
     view.draw();
