@@ -8,7 +8,7 @@ export function mountMenu(
   toggle: HTMLButtonElement,
   drawer: HTMLElement,
   actions: ReadonlyArray<MenuAction>,
-): void {
+): () => void {
   function setOpen(open: boolean): void {
     const wasOpen = drawer.classList.contains('open');
     if (open === wasOpen) return;
@@ -48,17 +48,25 @@ export function mountMenu(
     setOpen(!drawer.classList.contains('open'));
   });
 
-  document.addEventListener('pointerdown', (e) => {
+  function onDocumentPointerDown(e: PointerEvent): void {
     if (!drawer.classList.contains('open')) return;
     const target = e.target;
     if (!(target instanceof Node)) return;
     if (drawer.contains(target) || toggle.contains(target)) return;
     setOpen(false);
-  });
+  }
 
-  window.addEventListener('keydown', (e) => {
+  function onWindowKeyDown(e: KeyboardEvent): void {
     if (e.key === 'Escape' && drawer.classList.contains('open')) {
       setOpen(false);
     }
-  });
+  }
+
+  document.addEventListener('pointerdown', onDocumentPointerDown);
+  window.addEventListener('keydown', onWindowKeyDown);
+
+  return () => {
+    document.removeEventListener('pointerdown', onDocumentPointerDown);
+    window.removeEventListener('keydown', onWindowKeyDown);
+  };
 }
