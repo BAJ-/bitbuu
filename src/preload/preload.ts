@@ -4,7 +4,6 @@ export type DiscardChoice = 'save' | 'discard' | 'cancel';
 
 const api = Object.freeze({
   platform: process.platform,
-  ping: (): Promise<'pong'> => ipcRenderer.invoke('ping'),
   saveModel: (bytes: Uint8Array): Promise<{ canceled: boolean }> =>
     ipcRenderer.invoke('model:save', bytes),
   openModel: (): Promise<{ canceled: boolean; bytes?: Uint8Array }> =>
