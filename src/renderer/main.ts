@@ -101,8 +101,8 @@ canvas.addEventListener(
 canvas.addEventListener('click', (e) => {
   if (pan.isClickSuppressed()) return;
   const rect = canvas.getBoundingClientRect();
-  const w = canvas.clientWidth;
-  const h = canvas.clientHeight;
+  const w = rect.width;
+  const h = rect.height;
   const hit = picker.pick(
     model,
     camera.forCanvas(w, h),
@@ -128,8 +128,8 @@ canvas.addEventListener('contextmenu', (e) => {
   e.preventDefault();
   if (e.button !== 2) return;
   const rect = canvas.getBoundingClientRect();
-  const w = canvas.clientWidth;
-  const h = canvas.clientHeight;
+  const w = rect.width;
+  const h = rect.height;
   const hit = picker.pick(
     model,
     camera.forCanvas(w, h),
