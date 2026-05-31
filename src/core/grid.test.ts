@@ -1,13 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createModel, setVoxel } from './model';
 import { createProjector, type Camera } from './render';
-import {
-  forEachFloorCell,
-  forEachGridSegment,
-  gridBounds,
-  roomPlanes,
-  type FloorCell,
-} from './grid';
+import { forEachFloorCell, gridBounds, roomPlanes, type FloorCell } from './grid';
 
 const camera: Camera = { yaw: 0, pitch: 1, zoom: 10, panX: 0, panY: 0 };
 
@@ -48,30 +42,6 @@ describe('gridBounds', () => {
       maxX: 8,
       maxY: 8,
       maxZ: 8,
-    });
-  });
-});
-
-describe('forEachGridSegment', () => {
-  it('emits floor gridlines plus the eight non-floor box edges', () => {
-    const m = createModel(32, 32, 32);
-    const b = gridBounds(m);
-    let count = 0;
-    forEachGridSegment(m, camera, () => {
-      count++;
-    });
-    const floorLines = b.maxX - b.minX + 1 + (b.maxY - b.minY + 1);
-    expect(count).toBe(floorLines + 8);
-  });
-
-  it('produces finite screen coordinates', () => {
-    const m = createModel(32, 32, 32);
-    setVoxel(m, 16, 16, 16, 1);
-    forEachGridSegment(m, camera, (s) => {
-      expect(Number.isFinite(s.x1)).toBe(true);
-      expect(Number.isFinite(s.y1)).toBe(true);
-      expect(Number.isFinite(s.x2)).toBe(true);
-      expect(Number.isFinite(s.y2)).toBe(true);
     });
   });
 });

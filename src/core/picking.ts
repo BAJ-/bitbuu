@@ -1,5 +1,5 @@
 import type { Model } from './model';
-import { forEachFloorCell } from './grid';
+import { forEachFloorCell, roomPlanes } from './grid';
 import {
   drawFacePath,
   FACE_KIND_COUNT,
@@ -113,9 +113,7 @@ export function createPicker(): Picker {
       // Floor first, then model faces on top: a voxel face always wins the hit
       // test over the floor behind it, so clicking a voxel's bottom face places
       // below it rather than resolving to a floor tile.
-      let floorZ = 0;
       forEachFloorCell(m, camera, (fc) => {
-        floorZ = fc.z;
         bctx.fillStyle = encodeFaceId(floorIdFor(m, fc.gx, fc.gy));
         bctx.beginPath();
         bctx.moveTo(fc.x0, fc.y0);
@@ -141,7 +139,7 @@ export function createPicker(): Picker {
       if (floor) {
         // Virtual up-normal face on the floor plane: the click handler adds the
         // normal to land a voxel resting on the clicked tile.
-        return { x: floor.gx, y: floor.gy, z: floorZ - 1, nx: 0, ny: 0, nz: 1 };
+        return { x: floor.gx, y: floor.gy, z: roomPlanes(m).floorZ - 1, nx: 0, ny: 0, nz: 1 };
       }
 
       const decoded = decodeFaceId(m, id);

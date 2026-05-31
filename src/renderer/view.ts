@@ -1,6 +1,5 @@
 import type { Model } from '../core/model';
-import { render } from '../core/render';
-import { createProjector, PITCH_COUNT } from '../core/render';
+import { createProjector, render, PITCH_COUNT } from '../core/render';
 import { floorInFront, gridBounds, roomPlanes } from '../core/grid';
 import type { Camera, Yaw } from '../core/render';
 import type { CameraController } from './camera';

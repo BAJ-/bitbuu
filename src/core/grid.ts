@@ -84,46 +84,6 @@ export function floorInFront(camera: Camera): boolean {
   return pIdx >= 5 && pIdx <= 7;
 }
 
-export interface GridSegment {
-  x1: number;
-  y1: number;
-  x2: number;
-  y2: number;
-}
-
-// Emits the floor gridlines (at the box's bottom plane) and the 8 non-floor box
-// edges (4 vertical, 4 top) as projected screen segments; the 4 bottom edges are
-// the outermost floor lines. The GridSegment is reused across calls; callers
-// must not retain it.
-export function forEachGridSegment(m: Model, camera: Camera, cb: (s: GridSegment) => void): void {
-  const b = gridBounds(m);
-  const p = createProjector(m, camera);
-  const seg: GridSegment = { x1: 0, y1: 0, x2: 0, y2: 0 };
-  const emit = (ax: number, ay: number, az: number, bx: number, by: number, bz: number): void => {
-    p.project(ax, ay, az);
-    seg.x1 = p.ox;
-    seg.y1 = p.oy;
-    p.project(bx, by, bz);
-    seg.x2 = p.ox;
-    seg.y2 = p.oy;
-    cb(seg);
-  };
-
-  const z0 = b.minZ;
-  for (let x = b.minX; x <= b.maxX; x++) emit(x, b.minY, z0, x, b.maxY, z0);
-  for (let y = b.minY; y <= b.maxY; y++) emit(b.minX, y, z0, b.maxX, y, z0);
-
-  emit(b.minX, b.minY, b.minZ, b.minX, b.minY, b.maxZ);
-  emit(b.maxX, b.minY, b.minZ, b.maxX, b.minY, b.maxZ);
-  emit(b.maxX, b.maxY, b.minZ, b.maxX, b.maxY, b.maxZ);
-  emit(b.minX, b.maxY, b.minZ, b.minX, b.maxY, b.maxZ);
-
-  emit(b.minX, b.minY, b.maxZ, b.maxX, b.minY, b.maxZ);
-  emit(b.maxX, b.minY, b.maxZ, b.maxX, b.maxY, b.maxZ);
-  emit(b.maxX, b.maxY, b.maxZ, b.minX, b.maxY, b.maxZ);
-  emit(b.minX, b.maxY, b.maxZ, b.minX, b.minY, b.maxZ);
-}
-
 export interface FloorCell {
   // Cell the click resolves to (placement target).
   gx: number;
