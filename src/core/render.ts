@@ -73,6 +73,86 @@ function occupiedBounds(m: Model): {
   return { minX, minY, minZ, maxX, maxY, maxZ };
 }
 
+// Projects continuous model points to screen using the same pivot, rotation and
+// foreshortening as the voxel renderer, so grid geometry aligns exactly with
+// voxels. `project` writes into the reused `ox`/`oy` fields; callers must not
+// retain a reference across calls.
+export interface Projector {
+  readonly cell: number;
+  readonly vXY: number;
+  readonly vZ: number;
+  ox: number;
+  oy: number;
+  project(px: number, py: number, pz: number): void;
+}
+
+export function createProjector(m: Model, camera: Camera): Projector {
+  const cell = camera.zoom;
+  const pIdx = (((camera.pitch % PITCH_COUNT) + PITCH_COUNT) % PITCH_COUNT) | 0;
+  const theta = pIdx * PITCH_STEP_RAD;
+  const vXY = cell * Math.sin(theta);
+  const vZ = cell * Z_PROJ_SCALE * Math.cos(theta);
+
+  const bb = occupiedBounds(m);
+  const ocx = (bb.minX + bb.maxX) / 2;
+  const ocy = (bb.minY + bb.maxY) / 2;
+  const ocz = (bb.minZ + bb.maxZ) / 2;
+
+  const yaw = camera.yaw;
+  const sx = m.sx;
+  const sy = m.sy;
+  const panX = camera.panX;
+  const panY = camera.panY;
+
+  // Continuous 90°·yaw rotation into the camera-aligned frame. cfg.rotate in
+  // YAWS maps voxel INDICES (with -1 offsets); this maps continuous coords and
+  // is what the pivot below is expressed in.
+  let pivotRx: number;
+  let pivotRy: number;
+  if (yaw === 0) {
+    pivotRx = ocx;
+    pivotRy = ocy;
+  } else if (yaw === 1) {
+    pivotRx = sy - ocy;
+    pivotRy = ocx;
+  } else if (yaw === 2) {
+    pivotRx = sx - ocx;
+    pivotRy = sy - ocy;
+  } else {
+    pivotRx = ocy;
+    pivotRy = sx - ocx;
+  }
+
+  return {
+    cell,
+    vXY,
+    vZ,
+    ox: 0,
+    oy: 0,
+    project(px, py, pz) {
+      let rx: number;
+      let ry: number;
+      if (yaw === 0) {
+        rx = px;
+        ry = py;
+      } else if (yaw === 1) {
+        rx = sy - py;
+        ry = px;
+      } else if (yaw === 2) {
+        rx = sx - px;
+        ry = sy - py;
+      } else {
+        rx = py;
+        ry = sx - px;
+      }
+      const dx = rx - pivotRx;
+      const dy = ry - pivotRy;
+      this.ox = (dx - dy) * cell + panX;
+      this.oy = (dx + dy) * vXY - (pz - ocz) * vZ + panY;
+    },
+  };
+}
+
 function fillStyleFor(m: Model, v: number, shade: number): string {
   const o = v * 4;
   const r = Math.round(m.palette[o]! * shade);
@@ -86,41 +166,44 @@ function fillStyleFor(m: Model, v: number, shade: number): string {
 // +x and +y. `stepX`/`stepY` are the loop directions that visit voxels
 // back-to-front when cosθ > 0; both are negated when cosθ < 0.
 interface YawConfig {
-  rotate: (x: number, y: number, sx: number, sy: number) => readonly [number, number];
   stepX: 1 | -1;
   stepY: 1 | -1;
   right: readonly [number, number];
   left: readonly [number, number];
+  // Model-space cell corner that becomes the screen anchor under this yaw. The
+  // Projector rotates continuous coords, so the voxel loop offsets each cell by
+  // this corner to land on the same screen position the old index rotation did.
+  corner: readonly [number, number];
 }
 
 const YAWS: readonly [YawConfig, YawConfig, YawConfig, YawConfig] = [
   {
-    rotate: (x, y) => [x, y],
     stepX: 1,
     stepY: 1,
     right: [1, 0],
     left: [0, 1],
+    corner: [0, 0],
   },
   {
-    rotate: (x, y, _sx, sy) => [sy - 1 - y, x],
     stepX: 1,
     stepY: -1,
     right: [0, -1],
     left: [1, 0],
+    corner: [0, 1],
   },
   {
-    rotate: (x, y, sx, sy) => [sx - 1 - x, sy - 1 - y],
     stepX: -1,
     stepY: -1,
     right: [-1, 0],
     left: [0, -1],
+    corner: [1, 1],
   },
   {
-    rotate: (x, y, sx) => [y, sx - 1 - x],
     stepX: -1,
     stepY: 1,
     right: [0, 1],
     left: [-1, 0],
+    corner: [1, 0],
   },
 ];
 
@@ -165,43 +248,17 @@ export function faceNormal(yaw: Yaw, kind: FaceKind): readonly [number, number, 
 // every face. Callers must not retain the reference.
 export function forEachVisibleFace(m: Model, camera: Camera, cb: (f: VisibleFace) => void): void {
   const cfg = YAWS[camera.yaw];
-  const cell = camera.zoom;
+  const proj = createProjector(m, camera);
+  const { cell, vXY, vZ } = proj;
+  const cornerX = cfg.corner[0];
+  const cornerY = cfg.corner[1];
   const pIdx = (((camera.pitch % PITCH_COUNT) + PITCH_COUNT) % PITCH_COUNT) | 0;
-  const theta = pIdx * PITCH_STEP_RAD;
-  const sinT = Math.sin(theta);
-  const cosT = Math.cos(theta);
-  const vXY = cell * sinT;
-  const vZ = cell * Z_PROJ_SCALE * cosT;
 
   // Visibility and painter's order use sgn-from-index, not Math.sin/cos:
   // Math.cos(π/2) returns ~6e-17, which would leak degenerate sliver faces
   // into the output and into picking at the cardinal pitches.
   const sgnCos = pIdx === 0 || pIdx === 1 || pIdx === 7 ? 1 : pIdx >= 3 && pIdx <= 5 ? -1 : 0;
   const sgnSin = pIdx >= 1 && pIdx <= 3 ? 1 : pIdx >= 5 && pIdx <= 7 ? -1 : 0;
-
-  // Pivot around the occupied bbox centre so an off-centre shape doesn't
-  // orbit when rotated. cfg.rotate is unsuitable here — its -1 offsets map
-  // voxel INDICES, not continuous coordinates — so the rotation is inlined.
-  const bb = occupiedBounds(m);
-  const ocx = (bb.minX + bb.maxX) / 2;
-  const ocy = (bb.minY + bb.maxY) / 2;
-  const ocz = (bb.minZ + bb.maxZ) / 2;
-  let cxRot: number;
-  let cyRot: number;
-  if (camera.yaw === 0) {
-    cxRot = ocx;
-    cyRot = ocy;
-  } else if (camera.yaw === 1) {
-    cxRot = m.sy - ocy;
-    cyRot = ocx;
-  } else if (camera.yaw === 2) {
-    cxRot = m.sx - ocx;
-    cyRot = m.sy - ocy;
-  } else {
-    cxRot = ocy;
-    cyRot = m.sx - ocx;
-  }
-  const zAnchor = ocz;
 
   const xyDir = sgnCos >= 0 ? 1 : -1;
   const zDir = sgnSin >= 0 ? 1 : -1;
@@ -261,11 +318,9 @@ export function forEachVisibleFace(m: Model, camera: Camera, cb: (f: VisibleFace
           continue;
         }
 
-        const [rx, ry] = cfg.rotate(x, y, m.sx, m.sy);
-        const dx = rx - cxRot;
-        const dy = ry - cyRot;
-        const ox = (dx - dy) * cell + camera.panX;
-        const oy = (dx + dy) * vXY - (z - zAnchor) * vZ + camera.panY;
+        proj.project(x + cornerX, y + cornerY, z);
+        const ox = proj.ox;
+        const oy = proj.oy;
 
         face.v = v;
         face.x = x;

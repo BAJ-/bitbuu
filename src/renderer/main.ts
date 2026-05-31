@@ -140,12 +140,12 @@ canvas.addEventListener('contextmenu', (e) => {
     view.currentDpr(),
   );
   if (!hit) return;
+  if (hit.z < 0 || getVoxel(model, hit.x, hit.y, hit.z) === 0) return;
   history.push(model.voxels);
   setVoxel(model, hit.x, hit.y, hit.z, 0);
   dirty = true;
   view.draw();
 });
-
 window.addEventListener('keydown', (e) => {
   if (e.code === 'Space' && !e.repeat) {
     if (
@@ -199,6 +199,8 @@ window.addEventListener('keydown', (e) => {
   } else if (e.key === 's' || e.key === 'S') {
     camera.pitchBy(-1);
     view.draw();
+  } else if (e.key === 'g' || e.key === 'G') {
+    view.toggleGrid();
   }
 });
 
@@ -220,6 +222,7 @@ mountMenu(
     { label: 'New', shortcut: `${modKey}N`, onClick: () => void newModel() },
     { label: 'Open…', shortcut: `${modKey}O`, onClick: () => void open() },
     { label: 'Save…', shortcut: `${modKey}S`, onClick: () => void save() },
+    { label: 'Toggle Grid', shortcut: 'G', onClick: () => view.toggleGrid() },
   ],
 );
 
