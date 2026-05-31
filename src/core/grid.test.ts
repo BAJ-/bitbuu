@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { createModel, setVoxel } from './model';
 import { createProjector, type Camera } from './render';
-import { forEachFloorCell, forEachGridSegment, gridBounds, type FloorCell } from './grid';
+import {
+  forEachFloorCell,
+  forEachGridSegment,
+  gridBounds,
+  roomPlanes,
+  type FloorCell,
+} from './grid';
 
 const camera: Camera = { yaw: 0, pitch: 1, zoom: 10, panX: 0, panY: 0 };
 
@@ -79,7 +85,7 @@ describe('forEachFloorCell', () => {
       cells.push({ ...c });
     });
     expect(cells).toHaveLength((b.maxX - b.minX) * (b.maxY - b.minY));
-    for (const c of cells) expect(c.z).toBe(b.minZ);
+    for (const c of cells) expect(c.z).toBe(roomPlanes(m).floorZ);
     expect(cells.some((c) => c.gx === 15 && c.gy === 15)).toBe(true);
     expect(cells.some((c) => c.gx === 17 && c.gy === 17)).toBe(true);
   });

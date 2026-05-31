@@ -1,4 +1,5 @@
 import type { Model } from './model';
+import { forEachFloorCell } from './grid';
 import {
   drawFacePath,
   FACE_KIND_COUNT,
@@ -54,6 +55,22 @@ export function faceIdFor(m: Model, x: number, y: number, z: number, kind: FaceK
   return voxelIdx * FACE_KIND_COUNT + kind + 1;
 }
 
+// Floor cells live in an id band just above every possible model face id, so a
+// single pick buffer can carry both without collision.
+function floorIdBase(m: Model): number {
+  return m.sx * m.sy * m.sz * FACE_KIND_COUNT + 1;
+}
+
+export function floorIdFor(m: Model, gx: number, gy: number): number {
+  return floorIdBase(m) + gx + gy * m.sx;
+}
+
+function decodeFloorId(m: Model, id: number): { gx: number; gy: number } | null {
+  const idx = id - floorIdBase(m);
+  if (idx < 0 || idx >= m.sx * m.sy) return null;
+  return { gx: idx % m.sx, gy: Math.floor(idx / m.sx) };
+}
+
 export interface Picker {
   pick(
     m: Model,
@@ -75,9 +92,10 @@ export function createPicker(): Picker {
     pick(m, camera, cssW, cssH, px, py, dpr) {
       if (cssW <= 0 || cssH <= 0) return null;
       if (px < 0 || py < 0 || px >= cssW || py >= cssH) return null;
-      if (m.sx * m.sy * m.sz > MAX_PICKABLE_VOXELS) {
+      // Highest id encoded below: the last floor cell sits above the face band.
+      if (m.sx * m.sy * m.sz * FACE_KIND_COUNT + m.sx * m.sy > MAX_PICKABLE_FACES) {
         throw new RangeError(
-          `model exceeds picker capacity (${m.sx}x${m.sy}x${m.sz} > ${MAX_PICKABLE_VOXELS} voxels)`,
+          `model exceeds picker capacity (${m.sx}x${m.sy}x${m.sz} faces plus floor cells > ${MAX_PICKABLE_FACES} ids)`,
         );
       }
 
@@ -92,6 +110,22 @@ export function createPicker(): Picker {
       bctx.fillStyle = '#000000';
       bctx.fillRect(0, 0, cssW, cssH);
 
+      // Floor first, then model faces on top: a voxel face always wins the hit
+      // test over the floor behind it, so clicking a voxel's bottom face places
+      // below it rather than resolving to a floor tile.
+      let floorZ = 0;
+      forEachFloorCell(m, camera, (fc) => {
+        floorZ = fc.z;
+        bctx.fillStyle = encodeFaceId(floorIdFor(m, fc.gx, fc.gy));
+        bctx.beginPath();
+        bctx.moveTo(fc.x0, fc.y0);
+        bctx.lineTo(fc.x1, fc.y1);
+        bctx.lineTo(fc.x2, fc.y2);
+        bctx.lineTo(fc.x3, fc.y3);
+        bctx.closePath();
+        bctx.fill();
+      });
+
       forEachVisibleFace(m, camera, (f) => {
         bctx.fillStyle = encodeFaceId(faceIdFor(m, f.x, f.y, f.z, f.kind));
         drawFacePath(bctx, f);
@@ -102,6 +136,14 @@ export function createPicker(): Picker {
       const data = bctx.getImageData(sx, sy, 1, 1).data;
       if (data[3] !== 255) return null;
       const id = data[0]! | (data[1]! << 8) | (data[2]! << 16);
+
+      const floor = decodeFloorId(m, id);
+      if (floor) {
+        // Virtual up-normal face on the floor plane: the click handler adds the
+        // normal to land a voxel resting on the clicked tile.
+        return { x: floor.gx, y: floor.gy, z: floorZ - 1, nx: 0, ny: 0, nz: 1 };
+      }
+
       const decoded = decodeFaceId(m, id);
       if (!decoded) return null;
 

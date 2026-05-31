@@ -1,5 +1,5 @@
 import type { Model } from './model';
-import { createProjector, type Camera } from './render';
+import { createProjector, PITCH_COUNT, type Camera } from './render';
 
 export interface GridBounds {
   minX: number;
@@ -57,6 +57,31 @@ export function gridBounds(m: Model): GridBounds {
     maxY: Math.min(sy, maxY + 1),
     maxZ: Math.min(sz, maxZ + 1),
   };
+}
+
+export interface RoomPlanes {
+  // Bottom plane the floor renders on and a voxel rests on when dropped.
+  floorZ: number;
+  // Top plane the walls rise to.
+  topZ: number;
+}
+
+// The room's floor and ceiling Z planes. The single source of truth shared by
+// rendering and picking so the visible grid and the pickable grid coincide.
+export function roomPlanes(m: Model): RoomPlanes {
+  const b = gridBounds(m);
+  return {
+    floorZ: b.minZ === 0 ? 0 : b.minZ + 1,
+    topZ: b.maxZ === m.sz ? m.sz : b.maxZ - 1,
+  };
+}
+
+// The floor lies behind the model looking down on it (draw/test it first) and
+// in front once the camera tilts under the model (pitches 5..7), where it must
+// occlude the voxels. That range is exactly sin(theta) < 0.
+export function floorInFront(camera: Camera): boolean {
+  const pIdx = (((camera.pitch % PITCH_COUNT) + PITCH_COUNT) % PITCH_COUNT) | 0;
+  return pIdx >= 5 && pIdx <= 7;
 }
 
 export interface GridSegment {
@@ -120,7 +145,7 @@ export interface FloorCell {
 export function forEachFloorCell(m: Model, camera: Camera, cb: (c: FloorCell) => void): void {
   const b = gridBounds(m);
   const p = createProjector(m, camera);
-  const z = b.minZ;
+  const z = roomPlanes(m).floorZ;
   const c: FloorCell = {
     gx: 0,
     gy: 0,
