@@ -116,6 +116,85 @@
         color: #888;
         font-size: 12px;
       }
+      #export-dialog {
+        margin: auto;
+        width: 320px;
+        max-width: calc(100vw - 24px);
+        background: #2a2a2a;
+        color: #eee;
+        border: 1px solid #444;
+        border-radius: 8px;
+        padding: 20px;
+      }
+      #export-dialog::backdrop {
+        background: rgba(0, 0, 0, 0.5);
+      }
+      #export-dialog form {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      #export-dialog h2 {
+        font-size: 16px;
+        font-weight: 600;
+      }
+      #export-dialog fieldset {
+        border: none;
+        display: flex;
+        gap: 16px;
+      }
+      #export-dialog legend {
+        color: #888;
+        font-size: 12px;
+        margin-bottom: 6px;
+      }
+      #export-dialog .field-radio {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+      }
+      #export-dialog .field-range {
+        display: grid;
+        grid-template-columns: 72px 1fr 32px;
+        align-items: center;
+        gap: 8px;
+      }
+      #export-dialog .field-range[data-disabled='true'] {
+        opacity: 0.4;
+      }
+      #export-dialog .field-range output {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        color: #bbb;
+      }
+      #export-dialog input[type='range'] {
+        width: 100%;
+      }
+      #export-dialog menu {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        padding: 0;
+      }
+      #export-dialog menu button {
+        font: inherit;
+        color: #eee;
+        background: #3a3a3a;
+        border: 1px solid #555;
+        border-radius: 4px;
+        padding: 7px 14px;
+        cursor: pointer;
+      }
+      #export-dialog menu button[value='export'] {
+        background: #3b6ea5;
+        border-color: #3b6ea5;
+      }
+      #export-dialog menu button:hover,
+      #export-dialog menu button:focus-visible {
+        outline: none;
+        filter: brightness(1.15);
+      }
     </style>
   </head>
   <body>
@@ -135,6 +214,7 @@
     </button>
     <aside id="drawer" aria-label="Menu" inert></aside>
     <div id="palette" role="toolbar" aria-label="Palette"></div>
+    <dialog id="export-dialog" aria-label="Export glTF"></dialog>
     <script type="module" src="./main.ts"></script>
   </body>
 </html>

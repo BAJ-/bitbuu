@@ -24,6 +24,7 @@ app.on('web-contents-created', (_event, contents) => {
 });
 
 const FILE_FILTERS = [{ name: 'bitbuu model', extensions: ['buu'] }];
+const GLB_FILTERS = [{ name: 'glTF binary', extensions: ['glb'] }];
 const forceClosing = new WeakSet<BrowserWindow>();
 
 ipcMain.handle('model:save', async (event, bytes: Uint8Array) => {
@@ -32,6 +33,18 @@ ipcMain.handle('model:save', async (event, bytes: Uint8Array) => {
   const result = await dialog.showSaveDialog(win, {
     filters: FILE_FILTERS,
     defaultPath: 'model.buu',
+  });
+  if (result.canceled || !result.filePath) return { canceled: true };
+  await writeFile(result.filePath, bytes);
+  return { canceled: false };
+});
+
+ipcMain.handle('glb:export', async (event, bytes: Uint8Array) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return { canceled: true };
+  const result = await dialog.showSaveDialog(win, {
+    filters: GLB_FILTERS,
+    defaultPath: 'model.glb',
   });
   if (result.canceled || !result.filePath) return { canceled: true };
   await writeFile(result.filePath, bytes);

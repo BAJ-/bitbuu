@@ -2,8 +2,10 @@ import { createModel, DEFAULT_PALETTE, getVoxel, setVoxel } from '../core/model'
 import { createHistory } from '../core/history';
 import { createPicker } from '../core/picking';
 import { decodeModel, encodeModel } from '../core/io';
+import { encodeGlb } from '../core/gltf';
 import { createCamera } from './camera';
 import { mountMenu } from './menu';
+import { mountExportDialog } from './exportDialog';
 import { mountPalette } from './palette';
 import { createView } from './view';
 import { mountPan } from './pan';
@@ -15,6 +17,10 @@ if (!(canvasEl instanceof HTMLCanvasElement)) {
 const paletteEl = document.getElementById('palette');
 if (!(paletteEl instanceof HTMLElement)) {
   throw new Error('div#palette missing');
+}
+const exportDialogEl = document.getElementById('export-dialog');
+if (!(exportDialogEl instanceof HTMLDialogElement)) {
+  throw new Error('dialog#export-dialog missing');
 }
 const canvas: HTMLCanvasElement = canvasEl;
 
@@ -30,6 +36,7 @@ const camera = createCamera();
 const palette = mountPalette(paletteEl, model, INITIAL_SLOT);
 const view = createView(canvas, model, camera);
 const pan = mountPan(canvas, camera, view.draw);
+const exportDialog = mountExportDialog(exportDialogEl);
 let dirty = false;
 let closeInFlight = false;
 
@@ -39,6 +46,19 @@ async function save(): Promise<boolean> {
   if (result.canceled) return false;
   dirty = false;
   return true;
+}
+
+async function exportGlb(): Promise<void> {
+  const options = await exportDialog.open();
+  if (!options) return;
+  let bytes: Uint8Array;
+  try {
+    bytes = encodeGlb(model, options);
+  } catch (err) {
+    window.alert(`Could not export: ${(err as Error).message}`);
+    return;
+  }
+  await window.bitbuu.exportGlb(bytes);
 }
 
 async function open(): Promise<void> {
@@ -175,6 +195,11 @@ window.addEventListener('keydown', (e) => {
     void save();
     return;
   }
+  if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'e') {
+    e.preventDefault();
+    void exportGlb();
+    return;
+  }
   if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'o') {
     e.preventDefault();
     void open();
@@ -222,6 +247,7 @@ mountMenu(
     { label: 'New', shortcut: `${modKey}N`, onClick: () => void newModel() },
     { label: 'Open…', shortcut: `${modKey}O`, onClick: () => void open() },
     { label: 'Save…', shortcut: `${modKey}S`, onClick: () => void save() },
+    { label: 'Export glTF…', shortcut: `${modKey}E`, onClick: () => void exportGlb() },
     { label: 'Toggle Grid', shortcut: 'G', onClick: () => view.toggleGrid() },
   ],
 );
