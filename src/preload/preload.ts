@@ -6,6 +6,8 @@ const api = Object.freeze({
   platform: process.platform,
   saveModel: (bytes: Uint8Array): Promise<{ canceled: boolean }> =>
     ipcRenderer.invoke('model:save', bytes),
+  exportGlb: (bytes: Uint8Array): Promise<{ canceled: boolean }> =>
+    ipcRenderer.invoke('glb:export', bytes),
   openModel: (): Promise<{ canceled: boolean; bytes?: Uint8Array }> =>
     ipcRenderer.invoke('model:open'),
   confirmDiscard: (): Promise<DiscardChoice> => ipcRenderer.invoke('app:confirm-discard'),

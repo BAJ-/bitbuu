@@ -2,6 +2,7 @@ import { createModel, DEFAULT_PALETTE, getVoxel, setVoxel } from '../core/model'
 import { createHistory } from '../core/history';
 import { createPicker } from '../core/picking';
 import { decodeModel, encodeModel } from '../core/io';
+import { encodeGlb } from '../core/gltf';
 import { createCamera } from './camera';
 import { mountMenu } from './menu';
 import { mountPalette } from './palette';
@@ -39,6 +40,17 @@ async function save(): Promise<boolean> {
   if (result.canceled) return false;
   dirty = false;
   return true;
+}
+
+async function exportGlb(): Promise<void> {
+  let bytes: Uint8Array;
+  try {
+    bytes = encodeGlb(model);
+  } catch (err) {
+    window.alert(`Could not export: ${(err as Error).message}`);
+    return;
+  }
+  await window.bitbuu.exportGlb(bytes);
 }
 
 async function open(): Promise<void> {
@@ -175,6 +187,11 @@ window.addEventListener('keydown', (e) => {
     void save();
     return;
   }
+  if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'e') {
+    e.preventDefault();
+    void exportGlb();
+    return;
+  }
   if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'o') {
     e.preventDefault();
     void open();
@@ -222,6 +239,7 @@ mountMenu(
     { label: 'New', shortcut: `${modKey}N`, onClick: () => void newModel() },
     { label: 'Open…', shortcut: `${modKey}O`, onClick: () => void open() },
     { label: 'Save…', shortcut: `${modKey}S`, onClick: () => void save() },
+    { label: 'Export glTF…', shortcut: `${modKey}E`, onClick: () => void exportGlb() },
     { label: 'Toggle Grid', shortcut: 'G', onClick: () => view.toggleGrid() },
   ],
 );

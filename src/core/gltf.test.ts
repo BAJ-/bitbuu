@@ -106,16 +106,16 @@ describe('encodeGlb', () => {
   it('defaults to an unlit material with no NORMAL attribute', () => {
     const { json } = parseGlb(encodeGlb(single()));
     expect(json.asset.version).toBe('2.0');
-    expect(json.scenes[0].nodes).toEqual([0]);
+    expect(json.scenes[0]!.nodes).toEqual([0]);
     expect(json.nodes).toHaveLength(1);
-    expect(json.nodes[0].name).toBe('part');
-    expect(json.nodes[0].mesh).toBe(0);
-    expect(json.meshes[0].primitives[0].attributes).toEqual({
+    expect(json.nodes[0]!.name).toBe('part');
+    expect(json.nodes[0]!.mesh).toBe(0);
+    expect(json.meshes[0]!.primitives[0]!.attributes).toEqual({
       POSITION: 0,
       COLOR_0: 1,
     });
     expect(json.materials).toHaveLength(1);
-    expect(json.materials[0].extensions.KHR_materials_unlit).toEqual({});
+    expect(json.materials[0]!.extensions!.KHR_materials_unlit).toEqual({});
     expect(json.extensionsUsed).toContain('KHR_materials_unlit');
   });
 
@@ -123,27 +123,27 @@ describe('encodeGlb', () => {
     const { json } = parseGlb(
       encodeGlb(single(), { lighting: 'pbr', metallicFactor: 0.25, roughnessFactor: 0.5 }),
     );
-    expect(json.meshes[0].primitives[0].attributes).toEqual({
+    expect(json.meshes[0]!.primitives[0]!.attributes).toEqual({
       POSITION: 0,
       NORMAL: 1,
       COLOR_0: 2,
     });
     expect(json.extensionsUsed).toBeUndefined();
-    expect(json.materials[0].extensions).toBeUndefined();
-    expect(json.materials[0].pbrMetallicRoughness.metallicFactor).toBe(0.25);
-    expect(json.materials[0].pbrMetallicRoughness.roughnessFactor).toBe(0.5);
+    expect(json.materials[0]!.extensions).toBeUndefined();
+    expect(json.materials[0]!.pbrMetallicRoughness.metallicFactor).toBe(0.25);
+    expect(json.materials[0]!.pbrMetallicRoughness.roughnessFactor).toBe(0.5);
   });
 
   it('keeps accessor counts in step with the mesh', () => {
     const m = single();
     const mesh = buildVoxelMesh(m);
     const { json } = parseGlb(encodeGlb(m));
-    const idxAccessor = json.meshes[0].primitives[0].indices;
-    expect(json.accessors[0].count).toBe(mesh.vertexCount);
-    expect(json.accessors[0].min).toEqual(mesh.min);
-    expect(json.accessors[0].max).toEqual(mesh.max);
-    expect(json.accessors[idxAccessor].count).toBe(mesh.indexCount);
-    expect(json.buffers[0].byteLength).toBe(
+    const idxAccessor = json.meshes[0]!.primitives[0]!.indices;
+    expect(json.accessors[0]!.count).toBe(mesh.vertexCount);
+    expect(json.accessors[0]!.min).toEqual(mesh.min);
+    expect(json.accessors[0]!.max).toEqual(mesh.max);
+    expect(json.accessors[idxAccessor]!.count).toBe(mesh.indexCount);
+    expect(json.buffers[0]!.byteLength).toBe(
       mesh.vertexCount * 12 + mesh.vertexCount * 4 + mesh.indexCount * 4,
     );
   });
@@ -152,7 +152,7 @@ describe('encodeGlb', () => {
     const m = single();
     const mesh = buildVoxelMesh(m);
     const { json } = parseGlb(encodeGlb(m, { lighting: 'pbr' }));
-    expect(json.buffers[0].byteLength).toBe(
+    expect(json.buffers[0]!.byteLength).toBe(
       mesh.vertexCount * 12 + mesh.vertexCount * 12 + mesh.vertexCount * 4 + mesh.indexCount * 4,
     );
   });

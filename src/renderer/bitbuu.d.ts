@@ -3,6 +3,7 @@ declare global {
     bitbuu: {
       platform: NodeJS.Platform;
       saveModel(bytes: Uint8Array): Promise<{ canceled: boolean }>;
+      exportGlb(bytes: Uint8Array): Promise<{ canceled: boolean }>;
       openModel(): Promise<{ canceled: boolean; bytes?: Uint8Array }>;
       confirmDiscard(): Promise<'save' | 'discard' | 'cancel'>;
       forceClose(): Promise<void>;
