@@ -5,6 +5,7 @@ import { decodeModel, encodeModel } from '../core/io';
 import { encodeGlb } from '../core/gltf';
 import { createCamera } from './camera';
 import { mountMenu } from './menu';
+import { mountExportDialog } from './exportDialog';
 import { mountPalette } from './palette';
 import { createView } from './view';
 import { mountPan } from './pan';
@@ -16,6 +17,10 @@ if (!(canvasEl instanceof HTMLCanvasElement)) {
 const paletteEl = document.getElementById('palette');
 if (!(paletteEl instanceof HTMLElement)) {
   throw new Error('div#palette missing');
+}
+const exportDialogEl = document.getElementById('export-dialog');
+if (!(exportDialogEl instanceof HTMLDialogElement)) {
+  throw new Error('dialog#export-dialog missing');
 }
 const canvas: HTMLCanvasElement = canvasEl;
 
@@ -31,6 +36,7 @@ const camera = createCamera();
 const palette = mountPalette(paletteEl, model, INITIAL_SLOT);
 const view = createView(canvas, model, camera);
 const pan = mountPan(canvas, camera, view.draw);
+const exportDialog = mountExportDialog(exportDialogEl);
 let dirty = false;
 let closeInFlight = false;
 
@@ -43,9 +49,11 @@ async function save(): Promise<boolean> {
 }
 
 async function exportGlb(): Promise<void> {
+  const options = await exportDialog.open();
+  if (!options) return;
   let bytes: Uint8Array;
   try {
-    bytes = encodeGlb(model);
+    bytes = encodeGlb(model, options);
   } catch (err) {
     window.alert(`Could not export: ${(err as Error).message}`);
     return;
