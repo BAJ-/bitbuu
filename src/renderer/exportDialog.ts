@@ -68,9 +68,10 @@ export function mountExportDialog(dialog: HTMLDialogElement): ExportDialogContro
 
   const buttons = document.createElement('menu');
   const cancelBtn = document.createElement('button');
-  cancelBtn.type = 'submit';
+  cancelBtn.type = 'button';
   cancelBtn.value = 'cancel';
   cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', () => dialog.close('cancel'));
   const exportBtn = document.createElement('button');
   exportBtn.type = 'submit';
   exportBtn.value = 'export';

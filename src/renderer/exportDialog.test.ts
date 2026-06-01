@@ -49,6 +49,14 @@ describe('mountExportDialog', () => {
     for (const r of ranges(dialog)) expect(r.disabled).toBe(false);
   });
 
+  it('keeps Export as the only submit button so Enter does not cancel', () => {
+    const { dialog, controller } = setup();
+    void controller.open();
+    const submits = dialog.querySelectorAll<HTMLButtonElement>('button[type="submit"]');
+    expect(submits).toHaveLength(1);
+    expect(submits[0]!.value).toBe('export');
+  });
+
   it('resolves with the unlit option when exported', async () => {
     const { dialog, controller } = setup();
     const pending = controller.open();
